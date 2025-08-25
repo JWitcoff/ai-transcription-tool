@@ -1,0 +1,102 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Other git repositories (submodules)
+GrahamScroll/
+Resume-Matcher/
+multi-llm-debate-app/
+my-project/
+my-travel-agent-backup/
+my_agents/
+voice_agent/
+
+# Other projects
+AI-Assistant/
+ClaudeGraham/
+Course Examples/
+FINALSCRABBLE/
+FakeScrabble/
+Hugging Face Agents 101/
+OpenAI/
+OpenAI_SDK/
+PDF/
+PDF_Agent/
+People_Search/
+Research_Agent/
+Test/
+Week*/
+ai50/
+audio_transcriber/
+bulbs/
+caesar/
+cash/
+client/
+credit/
+filter-less/
+finance/
+food-budget-tracker/
+hello/
+homepage/
+mario-more/
+plurality/
+population/
+readability/
+recover/
+runoff/
+scrabble/
+smiley/
+sort/
+src/
+tests/
+trivia/
+twilio/
+voice_agent_env/
+
+# Temporary files
+*.tmp
+*.temp
+temp_*
