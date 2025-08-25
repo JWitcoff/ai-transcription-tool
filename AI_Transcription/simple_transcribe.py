@@ -8,6 +8,8 @@ import sys
 import os
 from pathlib import Path
 from datetime import datetime
+import subprocess
+import platform
 import yt_dlp
 
 # Import components
@@ -144,12 +146,24 @@ def transcribe_file(file_path: str):
 
 def save_transcript(result: dict, original_file: str):
     """Save transcript to file"""
+    # Create transcripts directory if it doesn't exist
+    output_dir = Path("transcripts")
+    output_dir.mkdir(exist_ok=True)
+    
     base_name = Path(original_file).stem
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     # Save as text
-    txt_file = f"{base_name}_transcript_{timestamp}.txt"
+    txt_file = output_dir / f"{base_name}_transcript_{timestamp}.txt"
     with open(txt_file, 'w', encoding='utf-8') as f:
+        # Add header
+        f.write(f"TRANSCRIPTION\n")
+        f.write(f"File: {original_file}\n")
+        f.write(f"Generated: {datetime.now()}\n")
+        if result.get("has_diarization"):
+            f.write(f"Speaker Diarization: ENABLED\n")
+        f.write("="*60 + "\n\n")
+        
         if result.get("has_diarization"):
             current_speaker = None
             for segment in result.get("segments", []):
@@ -162,11 +176,12 @@ def save_transcript(result: dict, original_file: str):
             f.write(result["text"])
     
     print(f"✅ Saved transcript: {txt_file}")
+    print(f"   Location: {txt_file.absolute()}")
     
     # Save as SRT
     srt = input("   Also save as SRT subtitles? (y/n): ").strip().lower()
     if srt == 'y':
-        srt_file = f"{base_name}_subtitles_{timestamp}.srt"
+        srt_file = output_dir / f"{base_name}_subtitles_{timestamp}.srt"
         with open(srt_file, 'w', encoding='utf-8') as f:
             for i, segment in enumerate(result.get("segments", []), 1):
                 start = format_timestamp(segment["start"])
@@ -176,6 +191,16 @@ def save_transcript(result: dict, original_file: str):
                     text = f"[{segment['speaker']}] {text}"
                 f.write(f"{i}\n{start} --> {end}\n{text}\n\n")
         print(f"✅ Saved subtitles: {srt_file}")
+        print(f"   Location: {srt_file.absolute()}")
+    
+    # Offer to open directory
+    if input("\n📂 Open output folder? (y/n): ").strip().lower() == 'y':
+        if platform.system() == "Windows":
+            subprocess.run(["explorer", str(output_dir.absolute())])
+        elif platform.system() == "Darwin":  # macOS
+            subprocess.run(["open", str(output_dir.absolute())])
+        else:  # Linux
+            subprocess.run(["xdg-open", str(output_dir.absolute())])
 
 def format_timestamp(seconds: float) -> str:
     """Format seconds to SRT timestamp"""

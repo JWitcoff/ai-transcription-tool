@@ -226,14 +226,18 @@ class VideoTranscriptionApp:
                     st.markdown(f"**[{start_time:.1f}s - {end_time:.1f}s]** {text}")
             
             # Download options
+            st.subheader("📥 Download Transcript")
             col1, col2, col3 = st.columns(3)
             
             with col1:
+                # Generate formatted text with speaker info
+                txt_content = self._generate_formatted_txt(transcript)
                 st.download_button(
                     "📄 Download TXT",
-                    data=transcript.get("text", ""),
+                    data=txt_content,
                     file_name=f"transcript_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                    mime="text/plain"
+                    mime="text/plain",
+                    help="Download transcript with speaker labels"
                 )
             
             with col2:
@@ -241,7 +245,8 @@ class VideoTranscriptionApp:
                     "📊 Download JSON",
                     data=json.dumps(transcript, indent=2),
                     file_name=f"transcript_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                    mime="application/json"
+                    mime="application/json",
+                    help="Download full transcript data including timestamps"
                 )
             
             with col3:
@@ -251,8 +256,21 @@ class VideoTranscriptionApp:
                     "🎬 Download SRT",
                     data=srt_content,
                     file_name=f"subtitles_{datetime.now().strftime('%Y%m%d_%H%M%S')}.srt",
-                    mime="text/plain"
+                    mime="text/plain",
+                    help="Download subtitle file for video editors"
                 )
+            
+            # Show diarization status
+            if has_speakers:
+                st.success("✅ Speaker diarization is ENABLED - Different speakers are identified in the transcript")
+                # Count speakers
+                speakers = set()
+                for segment in transcript.get("segments", []):
+                    if segment.get("speaker"):
+                        speakers.add(segment.get("speaker"))
+                st.info(f"Found {len(speakers)} unique speaker(s): {', '.join(sorted(speakers))}")
+            else:
+                st.info("ℹ️ Speaker diarization is DISABLED - Enable it for speaker identification")
     
     def _render_analysis_tab(self):
         st.header("Text Analysis & Theme Extraction")
@@ -427,6 +445,37 @@ class VideoTranscriptionApp:
         except Exception as e:
             st.error(f"Sentiment analysis failed: {str(e)}")
     
+    def _generate_formatted_txt(self, transcript):
+        """Generate formatted text with speaker information"""
+        lines = []
+        
+        # Add header
+        lines.append("TRANSCRIPTION")
+        lines.append(f"Generated: {datetime.now()}")
+        if transcript.get("has_diarization"):
+            lines.append("Speaker Diarization: ENABLED")
+        lines.append("=" * 60)
+        lines.append("")
+        
+        # Add transcript with speaker info
+        if transcript.get("has_diarization") and transcript.get("segments"):
+            current_speaker = None
+            for segment in transcript.get("segments", []):
+                speaker = segment.get("speaker", "Unknown")
+                text = segment.get("text", "").strip()
+                
+                if speaker != current_speaker:
+                    lines.append("")
+                    lines.append(f"{speaker}:")
+                    current_speaker = speaker
+                
+                lines.append(text)
+        else:
+            # No diarization - just return plain text
+            lines.append(transcript.get("text", ""))
+        
+        return "\n".join(lines)
+    
     def _generate_srt(self, transcript):
         """Generate SRT subtitle file"""
         srt_content = ""
@@ -435,6 +484,10 @@ class VideoTranscriptionApp:
             start = self._seconds_to_srt_time(segment.get("start", 0))
             end = self._seconds_to_srt_time(segment.get("end", 0))
             text = segment.get("text", "").strip()
+            
+            # Add speaker info if available
+            if transcript.get("has_diarization") and segment.get("speaker"):
+                text = f"[{segment.get('speaker')}] {text}"
             
             srt_content += f"{i}\n{start} --> {end}\n{text}\n\n"
         

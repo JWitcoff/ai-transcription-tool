@@ -16,6 +16,8 @@ import time
 from datetime import datetime
 import yt_dlp
 import tempfile
+import subprocess
+import platform
 
 # Import the WORKING transcriber from audio_transcriber folder
 try:
@@ -206,19 +208,34 @@ class WorkingCLI:
         if input("\n💾 Save transcript? (y/n): ").strip().lower() != 'y':
             return
         
+        # Create transcripts directory if it doesn't exist
+        output_dir = Path("transcripts")
+        output_dir.mkdir(exist_ok=True)
+        
         base_name = Path(original_file).stem
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         # Text format
-        txt_file = f"{base_name}_transcript_{timestamp}.txt"
-        self.transcriber.export_transcription(result, txt_file, "txt")
+        txt_file = output_dir / f"{base_name}_transcript_{timestamp}.txt"
+        self.transcriber.export_transcription(result, str(txt_file), "txt")
         print(f"✅ Saved: {txt_file}")
+        print(f"   Location: {txt_file.absolute()}")
         
         # SRT format
         if input("   Also save as SRT subtitles? (y/n): ").strip().lower() == 'y':
-            srt_file = f"{base_name}_subtitles_{timestamp}.srt"
-            self.transcriber.export_transcription(result, srt_file, "srt")
+            srt_file = output_dir / f"{base_name}_subtitles_{timestamp}.srt"
+            self.transcriber.export_transcription(result, str(srt_file), "srt")
             print(f"✅ Saved: {srt_file}")
+            print(f"   Location: {srt_file.absolute()}")
+        
+        # Offer to open directory
+        if input("\n📂 Open output folder? (y/n): ").strip().lower() == 'y':
+            if platform.system() == "Windows":
+                subprocess.run(["explorer", str(output_dir.absolute())])
+            elif platform.system() == "Darwin":  # macOS
+                subprocess.run(["open", str(output_dir.absolute())])
+            else:  # Linux
+                subprocess.run(["xdg-open", str(output_dir.absolute())])
     
     def _analyze_results(self, result: dict):
         """Analyze transcription with AI"""

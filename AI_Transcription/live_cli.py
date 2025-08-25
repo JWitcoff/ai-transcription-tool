@@ -10,6 +10,9 @@ import sys
 from datetime import datetime
 import threading
 from collections import deque
+import subprocess
+import platform
+from pathlib import Path
 
 # Import our components
 from live_stream_capture import LiveStreamCapture
@@ -216,12 +219,17 @@ class LiveCLI:
     
     def save_transcript(self):
         """Save transcript to file"""
+        # Create transcripts directory if it doesn't exist
+        output_dir = Path("transcripts")
+        output_dir.mkdir(exist_ok=True)
+        
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"transcript_{timestamp}.txt"
+        filename = output_dir / f"live_transcript_{timestamp}.txt"
         
         with open(filename, 'w', encoding='utf-8') as f:
             f.write(f"LIVE TRANSCRIPTION\n")
             f.write(f"Generated: {datetime.now()}\n")
+            f.write(f"Duration: {len(self.transcript_segments)} segments\n")
             f.write("=" * 60 + "\n\n")
             
             for segment in self.transcript_segments:
@@ -229,6 +237,16 @@ class LiveCLI:
                 f.write(f"[{time_str}] {segment['text']}\n")
         
         print(f"✅ Transcript saved to: {filename}")
+        print(f"   Location: {filename.absolute()}")
+        
+        # Offer to open directory
+        if input("\n📂 Open output folder? (y/n): ").strip().lower() == 'y':
+            if platform.system() == "Windows":
+                subprocess.run(["explorer", str(output_dir.absolute())])
+            elif platform.system() == "Darwin":  # macOS
+                subprocess.run(["open", str(output_dir.absolute())])
+            else:  # Linux
+                subprocess.run(["xdg-open", str(output_dir.absolute())])
     
     def generate_analysis(self):
         """Generate comprehensive analysis"""

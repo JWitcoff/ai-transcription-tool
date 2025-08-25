@@ -30,6 +30,14 @@ class AudioTranscriber:
         self.diarization_pipeline = None
         self.enable_diarization = enable_diarization and DIARIZATION_AVAILABLE
         self._load_model()
+        
+        # Show diarization status
+        if enable_diarization and not DIARIZATION_AVAILABLE:
+            print("⚠️  Speaker diarization: DISABLED (pyannote.audio not installed)")
+            print("   Install with: pip install pyannote.audio>=3.1.0")
+        elif not enable_diarization:
+            print("ℹ️  Speaker diarization: DISABLED (not requested)")
+        
         if self.enable_diarization:
             self._load_diarization_model()
     
@@ -45,10 +53,11 @@ class AudioTranscriber:
     def _load_diarization_model(self):
         """Load the speaker diarization model."""
         try:
-            print("Loading speaker diarization model...")
+            print("🎯 Loading speaker diarization model...")
             # Use the default pretrained model for speaker diarization
             self.diarization_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1")
-            print("Diarization model loaded successfully!")
+            print("✅ Speaker diarization: ENABLED")
+            print("   Model: pyannote/speaker-diarization-3.1")
         except Exception as e:
             print(f"Warning: Failed to load diarization model: {e}")
             self.enable_diarization = False
@@ -80,10 +89,17 @@ class AudioTranscriber:
             # Add speaker diarization if enabled
             diarization_result = None
             if self.enable_diarization and self.diarization_pipeline:
-                print("Performing speaker diarization...")
+                print("\n🎯 Performing speaker diarization...")
+                print("   This may take a moment...")
                 try:
                     diarization_result = self.diarization_pipeline(audio_file_path)
-                    print("Diarization completed!")
+                    
+                    # Count speakers
+                    speakers = set()
+                    for _, _, speaker in diarization_result.itertracks(yield_label=True):
+                        speakers.add(speaker)
+                    
+                    print(f"✅ Diarization completed! Found {len(speakers)} speaker(s)")
                 except Exception as e:
                     print(f"Diarization failed: {e}")
             
