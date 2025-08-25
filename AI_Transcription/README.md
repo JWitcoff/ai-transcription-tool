@@ -1,16 +1,17 @@
-# Video Transcription & Analysis Tool
+# 🎬 AI Transcription Tool
 
-A powerful tool that captures audio from live video streams, transcribes speech to text, and extracts key themes and insights from the content.
+A powerful, all-in-one audio/video transcription tool powered by OpenAI Whisper with speaker diarization, live transcription, and multiple export formats.
 
-## Features
+## ✨ Features
 
-- 🎬 **Live Stream Audio Capture**: Extract audio from YouTube, Twitch, and other live streaming platforms
-- 🎙️ **Speech-to-Text Transcription**: High-quality transcription using OpenAI Whisper
-- 📝 **Text Summarization**: Generate concise summaries of transcribed content
-- 🎯 **Theme Extraction**: Identify key themes and topics automatically
-- 😊 **Sentiment Analysis**: Analyze emotional tone and sentiment
-- 📊 **Export Options**: Save transcripts in TXT, JSON, SRT, and VTT formats
-- 🖥️ **Web Interface**: User-friendly Streamlit interface
+- 🎙️ **Multiple Input Sources**: YouTube videos, local files, live microphone
+- 🎯 **Speaker Diarization**: Automatically identify different speakers
+- ⚡ **Live Transcription**: Real-time speech-to-text from microphone
+- 📊 **Batch Processing**: Transcribe multiple files at once
+- 🤖 **AI Analysis**: Summarization, theme extraction, sentiment analysis
+- 📥 **Smart Downloads**: Export as TXT, SRT subtitles, or JSON
+- 🌐 **Web Interface**: Beautiful Streamlit app with download buttons
+- 🚀 **Multiple Quality Modes**: From fast to ultra-accurate
 
 ## Installation
 
@@ -29,62 +30,91 @@ A powerful tool that captures audio from live video streams, transcribes speech 
    # Download from https://ffmpeg.org/download.html
    ```
 
-### Setup
+### Quick Setup
 
-1. **Clone or download the project**
+1. **Clone the repository**
    ```bash
-   cd /Users/justinwitcoff/Coding\ Projects/video-transcription-tool
+   git clone https://github.com/JWitcoff/ai-transcription-tool.git
+   cd ai-transcription-tool/AI_Transcription
    ```
 
-2. **Install Python dependencies**
+2. **Install dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Configure environment (optional)**
+3. **Run the tool**
    ```bash
-   cp .env.example .env
-   # Edit .env file with your settings
+   python transcribe.py
    ```
 
-4. **Run the application**
-   ```bash
-   streamlit run app.py
-   ```
+That's it! The interactive menu will guide you through all options.
 
-## Usage
+## 🚀 Quick Start
 
-### Web Interface
+### One Command to Rule Them All
+```bash
+python transcribe.py
+```
 
-1. Open your browser to `http://localhost:8501`
-2. Navigate through the three main tabs:
+This opens an interactive menu with all transcription modes:
 
-#### 🎥 Live Capture Tab
-- Enter a video URL (YouTube, Twitch, etc.)
-- Set capture duration and start time
-- Click "Start Capture" to extract audio
+1. **📁 File/URL Transcription** - YouTube videos or local files
+2. **🎙️ Live Transcription** - Real-time from your microphone
+3. **🌐 Web Interface** - Browser-based with downloads
+4. **🚀 Quick Transcribe** - Fastest mode for quick results
+5. **📊 Batch Processing** - Multiple files at once
+6. **⚙️ Settings & Help** - Configure and learn
 
-#### 📝 Transcription Tab
-- Select Whisper model size (tiny to large)
-- Choose language or use auto-detection
-- Click "Start Transcription" to convert audio to text
-- Download results in multiple formats
+## 📖 Detailed Usage
 
-#### 📊 Analysis Tab
-- Generate text summaries
-- Extract key themes and topics
-- Analyze sentiment and emotional tone
+### Example: Transcribe a YouTube Video
+
+1. Run `python transcribe.py`
+2. Choose option 1 (File/URL Transcription)
+3. Select option 1 (YouTube URL)
+4. Paste your YouTube URL
+5. Choose quality level 3 or 4 for speaker identification
+6. Wait for transcription
+7. Find your transcript in the `transcripts/` folder
+
+### Example: Live Transcription
+
+1. Run `python transcribe.py`
+2. Choose option 2 (Live Transcription)
+3. Start speaking into your microphone
+4. Press Ctrl+C to stop
+5. Save the transcript when prompted
+
+### Speaker Diarization (Who Said What?)
+
+When enabled (options 3 or 4 in quality selection), the tool identifies different speakers:
+
+```
+Speaker A:
+Hello, welcome to our podcast.
+
+Speaker B:
+Thanks for having me! I'm excited to be here.
+
+Speaker A:
+Let's dive into today's topic...
+```
+
+## 📊 Output Formats
+
+All transcripts are saved to the `transcripts/` folder with timestamps:
+
+- **TXT**: Clean text with speaker labels
+- **SRT**: Subtitle files for video editors
+- **JSON**: Complete data with timestamps
 
 ### Supported Platforms
 
 The tool supports audio extraction from:
 - YouTube (including live streams)
-- Twitch
-- Vimeo
-- Facebook
-- Instagram
-- TikTok
-- Twitter
+- Local audio/video files (MP3, WAV, MP4, etc.)
+- Live microphone input
 - And many more via yt-dlp
 
 ### Model Sizes
@@ -99,28 +129,43 @@ Choose appropriate Whisper model based on your needs:
 | medium | 769 MB | Slow | Very Good | High accuracy |
 | large | 1550 MB | Slowest | Best | Maximum accuracy |
 
-## Configuration
+## ⚙️ Configuration
 
-### Environment Variables
+### API Keys (Optional)
 
-Create a `.env` file from `.env.example`:
+For AI analysis features, create a `.env` file:
 
 ```bash
-# API Keys (optional)
 OPENAI_API_KEY=your_openai_api_key_here
+```
 
-# Audio Settings
-DEFAULT_AUDIO_QUALITY=best
-DEFAULT_SAMPLE_RATE=16000
-MAX_AUDIO_DURATION=3600
+Without an API key, the tool still works perfectly for transcription and basic analysis.
 
-# Model Settings
-DEFAULT_WHISPER_MODEL=base
-ENABLE_GPU=true
+## 🔧 Troubleshooting
 
-# Analysis Settings
-MAX_SUMMARY_LENGTH=150
-MIN_SUMMARY_LENGTH=30
+### Common Issues
+
+1. **"FFmpeg not found"**
+   ```bash
+   # macOS
+   brew install ffmpeg
+   
+   # Ubuntu/Debian
+   sudo apt install ffmpeg
+   ```
+
+2. **"pyannote.audio not found" (Speaker diarization disabled)**
+   ```bash
+   pip install pyannote.audio>=3.1.0
+   ```
+
+3. **First run is slow**
+   - This is normal! Whisper models are downloaded (~1-2GB)
+   - Subsequent runs are much faster
+
+4. **Memory issues**
+   - Use smaller models (tiny/base) for less RAM usage
+   - Process shorter audio segments
 NUM_THEMES=5
 ```
 
