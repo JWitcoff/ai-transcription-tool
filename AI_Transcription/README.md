@@ -94,7 +94,7 @@ python quick_url_transcribe.py
 
 ### Speaker Diarization (Who Said What?)
 
-When enabled (options 3, 4, or 5), the tool identifies different speakers:
+**Quick URL Transcription automatically includes speaker diarization** when ElevenLabs Scribe is available. Manual advanced options 3, 4, and 5 also support speaker identification:
 
 ```
 Speaker A:
@@ -134,57 +134,47 @@ The tool supports audio extraction from:
 - Live microphone input
 - And many more via yt-dlp
 
-## 🎯 Transcription Options
+## 🎯 How Transcription Works
 
-Choose the best option for your needs:
+The AI Transcription Tool uses an intelligent **automatic provider selection** system:
 
-### Option 1: Fast (Tiny Model)
-**Tech Stack:** OpenAI Whisper tiny (39MB) • Local processing • No diarization  
-**Best For:** Quick testing, demos, resource-constrained environments  
-**Performance:** ~3x real-time • ~85-90% accuracy • No speaker identification  
-**Cost:** Free
+### 🚀 Quick URL Transcription (Recommended Workflow) ⭐
 
-### Option 2: Balanced (Base Model) ⭐ Recommended
-**Tech Stack:** OpenAI Whisper base (74MB) • Local processing • No diarization  
-**Best For:** General transcription, daily use, good speed/accuracy balance  
-**Performance:** ~1.5x real-time • ~90-93% accuracy • No speaker identification  
-**Cost:** Free
+**Default behavior when you run `python quick_url_transcribe.py` or choose Option 1 from menu:**
 
-### Option 3: Accurate (Base + pyannote)
-**Tech Stack:** Whisper base + pyannote.audio diarization • HuggingFace token required  
-**Best For:** Meetings, interviews, podcasts with 2-8 speakers  
-**Performance:** ~0.5x real-time • ~94% accuracy • Speaker identification  
-**Cost:** Free (requires HuggingFace account)
+1. **🏆 Tries ElevenLabs Scribe first** (if API key configured)
+   - 96.7% accuracy with built-in speaker diarization (up to 32 speakers)
+   - Cloud processing, fast results  
+   - Audio event detection
+   - Cost: ~$0.40/hour of audio
 
-### Option 4: Best (Large + pyannote)
-**Tech Stack:** Whisper large (1.55GB) + pyannote.audio • Heavy processing  
-**Best For:** Critical transcriptions, research, legal documents  
-**Performance:** ~0.2x real-time • ~95-96% accuracy • Speaker identification  
-**Cost:** Free (requires significant RAM/storage)
+2. **🔄 Falls back to Whisper automatically** (if Scribe unavailable)
+   - Whisper base model (74MB) for good speed/accuracy balance
+   - Local processing, completely free
+   - ~90-93% accuracy, no speaker identification
 
-### Option 5: Premium (ElevenLabs Scribe) 🎆
-**Tech Stack:** ElevenLabs API • Cloud processing • Integrated transcription + diarization  
-**Best For:** Professional use, large meetings (up to 32 speakers), commercial projects  
-**Performance:** 3x faster • 96.7% accuracy • Up to 32 speakers • Audio event detection  
-**Cost:** $0.40/hour of audio
+**Result:** You get the best available transcription automatically with zero configuration needed.
 
-### 📊 Quick Comparison
+---
 
-| Option | Speed | Accuracy | Speakers | Cost | Setup Complexity |
-|--------|-------|----------|----------|------|------------------|
-| 1. Fast | ⚡⚡⚡ | ⭐⭐ | 0 | Free | ✅ Simple |
-| 2. Balanced | ⚡⚡ | ⭐⭐⭐ | 0 | Free | ✅ Simple |
-| 3. Accurate | ⚡ | ⭐⭐⭐⭐ | 2-8 | Free | 🔑 HF Token |
-| 4. Best | 🐌 | ⭐⭐⭐⭐⭐ | 2-8 | Free | 🔑 HF Token + RAM |
-| 5. Premium | ⚡⚡⚡ | ⭐⭐⭐⭐⭐ | 32 | Paid | 🔑 API Key |
+### ⚙️ Advanced Manual Options (For Power Users)
 
-### 🎯 Which Option Should I Choose?
+**Only available via `python transcribe.py` → Option 2 (Advanced File/URL Options):**
 
-**For quick tests or demos:** Option 1 (Fast)  
-**For everyday transcription:** Option 2 (Balanced)  
-**For meetings with speaker ID:** Option 3 (Accurate) or 5 (Premium)  
-**For maximum local accuracy:** Option 4 (Best)  
-**For professional/commercial use:** Option 5 (Premium)
+| Option | Tech Stack | Accuracy | Speakers | Cost | Best For |
+|--------|------------|----------|----------|------|----------|
+| 1. Fast | Whisper tiny (39MB) | ~85-90% | 0 | Free | Quick tests |
+| 2. Balanced | Whisper base (74MB) | ~90-93% | 0 | Free | Daily use |
+| 3. Accurate | Whisper base + pyannote | ~94% | 2-8 | Free* | Meetings |
+| 4. Best | Whisper large + pyannote | ~95-96% | 2-8 | Free* | Research |
+| 5. Premium | ElevenLabs Scribe | ~96.7% | 32 | Paid | Professional |
+
+*Requires HuggingFace token for pyannote diarization
+
+### 💡 Which Should I Use?
+
+- **🎯 For 99% of users:** Just use Quick URL Transcription (`python quick_url_transcribe.py`)
+- **⚙️ For specific quality needs:** Use Advanced Options to manually select models
 
 ## ⚙️ Configuration
 
@@ -196,13 +186,13 @@ Create a `.env` file in the project directory:
 # For AI analysis features (optional)
 OPENAI_API_KEY=your_openai_api_key_here
 
-# For ElevenLabs Scribe (Option 5) - Premium transcription
+# For ElevenLabs Scribe - Premium transcription with speaker diarization
 ELEVENLABS_SCRIBE_KEY=your_elevenlabs_api_key_here
 ```
 
 **API Key Setup:**
 
-**ElevenLabs Scribe (for Option 5):**
+**ElevenLabs Scribe (for premium transcription):**
 1. Sign up at [elevenlabs.io](https://elevenlabs.io)
 2. Go to your [API Keys page](https://elevenlabs.io/app/settings/api-keys)
 3. Create a new API key
@@ -214,7 +204,7 @@ ELEVENLABS_SCRIBE_KEY=your_elevenlabs_api_key_here
 3. Create a new secret key
 4. Add it to your `.env` file as `OPENAI_API_KEY`
 
-**Without API keys:** Options 1-4 work perfectly for local transcription and basic analysis.
+**Without API keys:** All local Whisper options work perfectly for transcription and basic analysis. Quick URL workflow will automatically fall back to Whisper.
 
 ## 🔧 Troubleshooting
 
@@ -229,10 +219,10 @@ ELEVENLABS_SCRIBE_KEY=your_elevenlabs_api_key_here
    sudo apt install ffmpeg
    ```
 
-2. **"pyannote.audio not found" (Speaker diarization disabled)**
-   ```bash
-   pip install pyannote.audio>=3.1.0
-   ```
+2. **"pyannote.audio not available" (Only affects advanced manual options 3-4)**
+   - pyannote.audio should install automatically with `pip install -r requirements.txt`
+   - If missing: `pip install pyannote.audio>=3.1.0`
+   - Quick URL transcription uses ElevenLabs Scribe instead
 
 3. **First run is slow**
    - This is normal! Whisper models are downloaded (~1-2GB)
@@ -257,10 +247,11 @@ For faster transcription, ensure you have:
 - **Streams**: Any URL supported by yt-dlp
 
 ### Output Formats
-- **TXT**: Plain text transcript
-- **JSON**: Detailed transcription with timestamps
-- **SRT**: Subtitle file for video players
-- **VTT**: Web-compatible subtitle format
+- **TXT**: Plain text transcript with speaker labels
+- **JSON**: Complete transcription data with timestamps and metadata
+- **SRT**: SubRip subtitle files for video editors  
+- **VTT**: WebVTT captions for web players and browsers
+- **Segments JSON**: Structured segment data with speaker mapping
 
 ## API Usage
 
@@ -313,35 +304,27 @@ sentiment = analyzer.analyze_sentiment(result["text"])
 4. **Internet Speed**: Fast connection improves stream capture
 5. **Storage**: Ensure sufficient disk space for temporary files
 
-## Troubleshooting
-
-### Common Issues
-
-1. **FFmpeg not found**
-   - Install FFmpeg and ensure it's in your PATH
-   - Test with: `ffmpeg -version`
-
-2. **Out of memory errors**
-   - Use smaller Whisper models (tiny/base)
-   - Reduce audio duration
-   - Close other applications
-
-3. **Slow transcription**
-   - Enable GPU acceleration
-   - Use smaller models for testing
-   - Ensure adequate RAM
-
-4. **Audio capture fails**
-   - Check internet connection
-   - Verify URL is accessible
-   - Some streams may be region-locked
-
-### Getting Help
+### Additional Help
 
 1. Check the logs in `video_transcription.log`
 2. Verify all dependencies are installed
 3. Test with shorter audio clips first
 4. Check system requirements
+
+5. **Out of memory errors**
+   - Use smaller Whisper models (tiny/base) in advanced options
+   - Process shorter audio segments
+   - Close other applications
+
+6. **Slow transcription**
+   - Quick URL workflow uses cloud processing (faster)
+   - For local: Enable GPU acceleration if available
+   - Use smaller models for testing
+
+7. **Audio capture fails**
+   - Check internet connection
+   - Verify URL is accessible
+   - Some streams may be region-locked
 
 ## System Requirements
 
