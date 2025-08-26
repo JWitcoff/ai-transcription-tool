@@ -1,6 +1,6 @@
 # 🎬 AI Transcription Tool
 
-A powerful, all-in-one audio/video transcription tool powered by OpenAI Whisper with speaker diarization, live transcription, and multiple export formats.
+A powerful, all-in-one audio/video transcription tool powered by ElevenLabs Scribe and OpenAI Whisper with advanced speaker diarization (up to 32 speakers), live transcription, and multiple export formats.
 
 ## ✨ Features
 
@@ -59,29 +59,35 @@ python transcribe.py
 
 This opens an interactive menu with all transcription modes:
 
-1. **📁 File/URL Transcription** - YouTube videos or local files
-2. **🎙️ Live Transcription** - Real-time from your microphone
-3. **🌐 Web Interface** - Browser-based with downloads
-4. **🚀 Quick Transcribe** - Fastest mode for quick results
+1. **🎯 Quick URL Transcription** ⭐ RECOMMENDED - Enter any video URL → Get complete analysis
+2. **📁 Advanced File/URL Options** - Manual quality selection and batch processing  
+3. **🎙️ Live Transcription** - Real-time from your microphone
+4. **🌐 Web Interface** - Browser-based with downloads
 5. **📊 Batch Processing** - Multiple files at once
 6. **⚙️ Settings & Help** - Configure and learn
 
 ## 📖 Detailed Usage
 
-### Example: Transcribe a YouTube Video
+### Example: Quick YouTube Video Transcription ⭐ RECOMMENDED
 
-1. Run `python transcribe.py`
-2. Choose option 1 (File/URL Transcription)
-3. Select option 1 (YouTube URL)
-4. Paste your YouTube URL
-5. Choose option 3, 4, or 5 for speaker identification
-6. Wait for transcription
-7. Find your transcript in the `transcripts/` folder
+**The fastest workflow:**
+```bash
+python quick_url_transcribe.py
+```
+1. Enter your YouTube URL
+2. Get complete transcription + speaker identification + AI analysis
+3. Find results in the `transcripts/` folder
+
+**Or via the main menu:**
+1. Run `python transcribe.py`  
+2. Choose option 1 (Quick URL Transcription)
+3. Enter your YouTube URL
+4. Complete analysis is generated automatically
 
 ### Example: Live Transcription
 
 1. Run `python transcribe.py`
-2. Choose option 2 (Live Transcription)
+2. Choose option 3 (Live Transcription)
 3. Start speaking into your microphone
 4. Press Ctrl+C to stop
 5. Save the transcript when prompted
@@ -103,11 +109,22 @@ Let's dive into today's topic...
 
 ## 📊 Output Formats
 
-All transcripts are saved to the `transcripts/` folder with timestamps:
+All transcripts are automatically saved to the `transcripts/` folder in multiple formats:
 
-- **TXT**: Clean text with speaker labels
-- **SRT**: Subtitle files for video editors
-- **JSON**: Complete data with timestamps
+- **TXT**: Clean, human-readable text with speaker labels
+- **JSON**: Complete data with timestamps, metadata, and segments  
+- **SRT**: SubRip subtitle files for video editors
+- **VTT**: WebVTT captions for web players and browsers
+- **Segments JSON**: Structured segment data with speaker mapping
+
+**Example output files:**
+```
+transcripts/transcript_20240126_143052.txt      # Main transcript
+transcripts/transcript_20240126_143052.json     # Raw data  
+transcripts/transcript_20240126_143052.srt      # Subtitles
+transcripts/transcript_20240126_143052.vtt      # Web captions
+transcripts/transcript_20240126_143052_segments.json  # Segment data
+```
 
 ### Supported Platforms
 
@@ -224,8 +241,6 @@ ELEVENLABS_SCRIBE_KEY=your_elevenlabs_api_key_here
 4. **Memory issues**
    - Use smaller models (tiny/base) for less RAM usage
    - Process shorter audio segments
-NUM_THEMES=5
-```
 
 ### GPU Acceleration
 
@@ -252,26 +267,42 @@ For faster transcription, ensure you have:
 You can also use the components programmatically:
 
 ```python
-from audio_capture import AudioCapture
-from transcriber import Transcriber
+from audio_transcriber import AudioTranscriber
 from analyzer import TextAnalyzer
+from openai_analyzer import OpenAIAnalyzer
+import yt_dlp
+import tempfile
 
-# Capture audio
-capture = AudioCapture()
-audio_file, info = capture.capture_from_url(
-    "https://youtube.com/watch?v=example",
-    duration=300
+# Download audio from YouTube
+def download_audio(url):
+    temp_audio = tempfile.mktemp(suffix='.wav')
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': temp_audio,
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'wav',
+        }]
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([url])
+    return temp_audio
+
+# Transcribe with ElevenLabs Scribe (premium)
+transcriber = AudioTranscriber(
+    model_size='base',
+    enable_diarization=True,
+    diarization_provider='elevenlabs'  # or 'pyannote' or 'auto'
 )
 
-# Transcribe
-transcriber = Transcriber()
-transcript = transcriber.transcribe(audio_file, model_size="base")
+audio_file = download_audio("https://youtube.com/watch?v=example")
+result = transcriber.transcribe_from_file(audio_file, include_timestamps=True)
 
-# Analyze
-analyzer = TextAnalyzer()
-summary = analyzer.summarize(transcript["text"])
-themes = analyzer.extract_themes(transcript["text"])
-sentiment = analyzer.analyze_sentiment(transcript["text"])
+# Analyze with OpenAI (with local fallback)
+analyzer = OpenAIAnalyzer()  # Falls back to TextAnalyzer if no API key
+summary = analyzer.summarize(result["text"])
+themes = analyzer.extract_themes(result["text"])
+sentiment = analyzer.analyze_sentiment(result["text"])
 ```
 
 ## Performance Tips
@@ -333,7 +364,9 @@ This project is for educational and research purposes. Please respect the terms 
 
 ## Acknowledgments
 
-- [OpenAI Whisper](https://github.com/openai/whisper) for speech recognition
+- [ElevenLabs Scribe](https://elevenlabs.io) for premium transcription and speaker diarization
+- [OpenAI Whisper](https://github.com/openai/whisper) for local speech recognition
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) for video/audio extraction
 - [Streamlit](https://streamlit.io/) for the web interface
 - [Transformers](https://huggingface.co/transformers/) for text analysis
+- [pyannote.audio](https://github.com/pyannote/pyannote-audio) for local speaker diarization
