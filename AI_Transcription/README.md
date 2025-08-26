@@ -74,7 +74,7 @@ This opens an interactive menu with all transcription modes:
 2. Choose option 1 (File/URL Transcription)
 3. Select option 1 (YouTube URL)
 4. Paste your YouTube URL
-5. Choose quality level 3 or 4 for speaker identification
+5. Choose option 3, 4, or 5 for speaker identification
 6. Wait for transcription
 7. Find your transcript in the `transcripts/` folder
 
@@ -88,7 +88,7 @@ This opens an interactive menu with all transcription modes:
 
 ### Speaker Diarization (Who Said What?)
 
-When enabled (options 3 or 4 in quality selection), the tool identifies different speakers:
+When enabled (options 3, 4, or 5), the tool identifies different speakers:
 
 ```
 Speaker A:
@@ -117,29 +117,87 @@ The tool supports audio extraction from:
 - Live microphone input
 - And many more via yt-dlp
 
-### Model Sizes
+## 🎯 Transcription Options
 
-Choose appropriate Whisper model based on your needs:
+Choose the best option for your needs:
 
-| Model | Size | Speed | Accuracy | Use Case |
-|-------|------|-------|----------|----------|
-| tiny  | 39 MB | Fastest | Good | Quick testing |
-| base  | 74 MB | Fast | Better | General use |
-| small | 244 MB | Medium | Good | Better accuracy |
-| medium | 769 MB | Slow | Very Good | High accuracy |
-| large | 1550 MB | Slowest | Best | Maximum accuracy |
+### Option 1: Fast (Tiny Model)
+**Tech Stack:** OpenAI Whisper tiny (39MB) • Local processing • No diarization  
+**Best For:** Quick testing, demos, resource-constrained environments  
+**Performance:** ~3x real-time • ~85-90% accuracy • No speaker identification  
+**Cost:** Free
+
+### Option 2: Balanced (Base Model) ⭐ Recommended
+**Tech Stack:** OpenAI Whisper base (74MB) • Local processing • No diarization  
+**Best For:** General transcription, daily use, good speed/accuracy balance  
+**Performance:** ~1.5x real-time • ~90-93% accuracy • No speaker identification  
+**Cost:** Free
+
+### Option 3: Accurate (Base + pyannote)
+**Tech Stack:** Whisper base + pyannote.audio diarization • HuggingFace token required  
+**Best For:** Meetings, interviews, podcasts with 2-8 speakers  
+**Performance:** ~0.5x real-time • ~94% accuracy • Speaker identification  
+**Cost:** Free (requires HuggingFace account)
+
+### Option 4: Best (Large + pyannote)
+**Tech Stack:** Whisper large (1.55GB) + pyannote.audio • Heavy processing  
+**Best For:** Critical transcriptions, research, legal documents  
+**Performance:** ~0.2x real-time • ~95-96% accuracy • Speaker identification  
+**Cost:** Free (requires significant RAM/storage)
+
+### Option 5: Premium (ElevenLabs Scribe) 🎆
+**Tech Stack:** ElevenLabs API • Cloud processing • Integrated transcription + diarization  
+**Best For:** Professional use, large meetings (up to 32 speakers), commercial projects  
+**Performance:** 3x faster • 96.7% accuracy • Up to 32 speakers • Audio event detection  
+**Cost:** $0.40/hour of audio
+
+### 📊 Quick Comparison
+
+| Option | Speed | Accuracy | Speakers | Cost | Setup Complexity |
+|--------|-------|----------|----------|------|------------------|
+| 1. Fast | ⚡⚡⚡ | ⭐⭐ | 0 | Free | ✅ Simple |
+| 2. Balanced | ⚡⚡ | ⭐⭐⭐ | 0 | Free | ✅ Simple |
+| 3. Accurate | ⚡ | ⭐⭐⭐⭐ | 2-8 | Free | 🔑 HF Token |
+| 4. Best | 🐌 | ⭐⭐⭐⭐⭐ | 2-8 | Free | 🔑 HF Token + RAM |
+| 5. Premium | ⚡⚡⚡ | ⭐⭐⭐⭐⭐ | 32 | Paid | 🔑 API Key |
+
+### 🎯 Which Option Should I Choose?
+
+**For quick tests or demos:** Option 1 (Fast)  
+**For everyday transcription:** Option 2 (Balanced)  
+**For meetings with speaker ID:** Option 3 (Accurate) or 5 (Premium)  
+**For maximum local accuracy:** Option 4 (Best)  
+**For professional/commercial use:** Option 5 (Premium)
 
 ## ⚙️ Configuration
 
-### API Keys (Optional)
+### API Keys Configuration
 
-For AI analysis features, create a `.env` file:
+Create a `.env` file in the project directory:
 
 ```bash
+# For AI analysis features (optional)
 OPENAI_API_KEY=your_openai_api_key_here
+
+# For ElevenLabs Scribe (Option 5) - Premium transcription
+ELEVENLABS_SCRIBE_KEY=your_elevenlabs_api_key_here
 ```
 
-Without an API key, the tool still works perfectly for transcription and basic analysis.
+**API Key Setup:**
+
+**ElevenLabs Scribe (for Option 5):**
+1. Sign up at [elevenlabs.io](https://elevenlabs.io)
+2. Go to your [API Keys page](https://elevenlabs.io/app/settings/api-keys)
+3. Create a new API key
+4. Add it to your `.env` file as `ELEVENLABS_SCRIBE_KEY`
+
+**OpenAI (optional - for analysis features):**
+1. Sign up at [platform.openai.com](https://platform.openai.com)
+2. Navigate to API Keys section
+3. Create a new secret key
+4. Add it to your `.env` file as `OPENAI_API_KEY`
+
+**Without API keys:** Options 1-4 work perfectly for local transcription and basic analysis.
 
 ## 🔧 Troubleshooting
 

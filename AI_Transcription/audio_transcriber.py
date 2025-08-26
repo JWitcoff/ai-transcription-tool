@@ -14,8 +14,15 @@ except ImportError:
     DIARIZATION_AVAILABLE = False
     print("Warning: pyannote.audio not available. Diarization features disabled.")
 
+try:
+    from elevenlabs_scribe import ScribeClient, parse_words_from_response, group_words_into_segments
+    ELEVENLABS_AVAILABLE = True
+except ImportError:
+    ELEVENLABS_AVAILABLE = False
+    print("Warning: elevenlabs_scribe not available. Scribe features disabled.")
+
 class AudioTranscriber:
-    def __init__(self, model_size: str = "base", device: Optional[str] = None, enable_diarization: bool = True):
+    def __init__(self, model_size: str = "base", device: Optional[str] = None, enable_diarization: bool = True, diarization_provider: str = "auto"):
         """
         Initialize AudioTranscriber with offline Whisper model and optional diarization.
         
@@ -23,23 +30,29 @@ class AudioTranscriber:
             model_size: Whisper model size (tiny, base, small, medium, large)
             device: Device to run model on (cpu, cuda, etc.)
             enable_diarization: Whether to enable speaker diarization
+            diarization_provider: Diarization provider ('auto', 'pyannote', 'elevenlabs')
         """
         self.model_size = model_size
         self.device = device
         self.model = None
         self.diarization_pipeline = None
-        self.enable_diarization = enable_diarization and DIARIZATION_AVAILABLE
+        self.elevenlabs_scribe = None
+        self.diarization_provider = self._select_diarization_provider(diarization_provider, enable_diarization)
+        self.enable_diarization = enable_diarization and (self.diarization_provider is not None)
+        
         self._load_model()
         
         # Show diarization status
-        if enable_diarization and not DIARIZATION_AVAILABLE:
-            print("⚠️  Speaker diarization: DISABLED (pyannote.audio not installed)")
-            print("   Install with: pip install pyannote.audio>=3.1.0")
+        if enable_diarization and not self.enable_diarization:
+            print("⚠️  Speaker diarization: DISABLED (no providers available)")
+            if not DIARIZATION_AVAILABLE and not ELEVENLABS_AVAILABLE:
+                print("   Install pyannote: pip install pyannote.audio>=3.1.0")
+                print("   OR configure ElevenLabs API key in .env file")
         elif not enable_diarization:
             print("ℹ️  Speaker diarization: DISABLED (not requested)")
         
         if self.enable_diarization:
-            self._load_diarization_model()
+            self._load_diarization_provider()
     
     def _load_model(self):
         """Load the Whisper model."""
@@ -50,13 +63,50 @@ class AudioTranscriber:
         except Exception as e:
             raise RuntimeError(f"Failed to load Whisper model: {e}")
     
-    def _load_diarization_model(self):
-        """Load the speaker diarization model."""
+    def _select_diarization_provider(self, provider: str, enable_diarization: bool) -> Optional[str]:
+        """Select the best available diarization provider."""
+        if not enable_diarization:
+            return None
+            
+        if provider == "elevenlabs":
+            return "elevenlabs" if ELEVENLABS_AVAILABLE else None
+        elif provider == "pyannote":
+            return "pyannote" if DIARIZATION_AVAILABLE else None
+        elif provider == "auto":
+            # Prefer ElevenLabs for better accuracy
+            if ELEVENLABS_AVAILABLE:
+                return "elevenlabs"
+            elif DIARIZATION_AVAILABLE:
+                return "pyannote"
+        
+        return None
+    
+    def _load_diarization_provider(self):
+        """Load the selected diarization provider."""
+        if self.diarization_provider == "elevenlabs":
+            self._load_elevenlabs_scribe()
+        elif self.diarization_provider == "pyannote":
+            self._load_pyannote_pipeline()
+    
+    def _load_elevenlabs_scribe(self):
+        """Load ElevenLabs Scribe for diarization."""
         try:
-            print("🎯 Loading speaker diarization model...")
-            # Use the default pretrained model for speaker diarization
+            print("🎯 Loading ElevenLabs Scribe...")
+            self.elevenlabs_scribe = ScribeClient()
+            print("✅ Speaker diarization: ENABLED (ElevenLabs Scribe)")
+            print("   • Up to 32 speakers supported")
+            print("   • 96.7% accuracy + audio event detection")
+        except Exception as e:
+            print(f"Warning: Failed to load ElevenLabs Scribe: {e}")
+            self.enable_diarization = False
+            self.diarization_provider = None
+    
+    def _load_pyannote_pipeline(self):
+        """Load pyannote.audio pipeline for diarization."""
+        try:
+            print("🎯 Loading pyannote speaker diarization...")
             self.diarization_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1")
-            print("✅ Speaker diarization: ENABLED")
+            print("✅ Speaker diarization: ENABLED (pyannote.audio)")
             print("   Model: pyannote/speaker-diarization-3.1")
         except Exception as e:
             print(f"Warning: Failed to load diarization model: {e}")
@@ -79,45 +129,104 @@ class AudioTranscriber:
         try:
             print(f"Transcribing: {audio_file_path}")
             
-            # Get transcription from Whisper
-            result = self.model.transcribe(
-                audio_file_path,
-                word_timestamps=include_timestamps,
-                verbose=True
-            )
+            # Use ElevenLabs Scribe if available (handles both transcription and diarization)
+            if self.enable_diarization and self.diarization_provider == "elevenlabs":
+                return self._transcribe_with_elevenlabs(audio_file_path)
             
-            # Add speaker diarization if enabled
-            diarization_result = None
-            if self.enable_diarization and self.diarization_pipeline:
-                print("\n🎯 Performing speaker diarization...")
-                print("   This may take a moment...")
-                try:
-                    diarization_result = self.diarization_pipeline(audio_file_path)
-                    
-                    # Count speakers
-                    speakers = set()
-                    for _, _, speaker in diarization_result.itertracks(yield_label=True):
-                        speakers.add(speaker)
-                    
-                    print(f"✅ Diarization completed! Found {len(speakers)} speaker(s)")
-                except Exception as e:
-                    print(f"Diarization failed: {e}")
+            # Otherwise use Whisper + optional pyannote diarization
+            return self._transcribe_with_whisper(audio_file_path, include_timestamps)
             
-            # Combine transcription with speaker labels
-            enhanced_segments = self._combine_transcription_and_diarization(
-                result.get("segments", []), 
-                diarization_result
-            )
-            
-            return {
-                "text": result["text"],
-                "language": result["language"],
-                "segments": enhanced_segments,
-                "words": result.get("words", []) if include_timestamps else [],
-                "has_diarization": diarization_result is not None
-            }
         except Exception as e:
             raise RuntimeError(f"Transcription error: {e}")
+    
+    def _transcribe_with_elevenlabs(self, audio_file_path: str) -> Dict:
+        """Transcribe using ElevenLabs Scribe (includes diarization)."""
+        print("🚀 Using ElevenLabs Scribe for transcription + diarization")
+        
+        try:
+            # Use file upload for local files
+            raw_result = self.elevenlabs_scribe.transcribe_file(
+                audio_file_path,
+                diarize=True,
+                num_speakers=None,  # Auto-detect
+                use_multi_channel=False  # Single channel for now
+            )
+            
+            # Parse words and group into segments
+            words = parse_words_from_response(raw_result)
+            segments = group_words_into_segments(words)
+            
+            # Extract unique speakers
+            speakers = list(set(seg.speaker_id for seg in segments))
+            
+            # Format segments for compatibility
+            formatted_segments = []
+            for seg in segments:
+                formatted_segments.append({
+                    'speaker': seg.speaker_id,
+                    'text': seg.text,
+                    'start': seg.start,
+                    'end': seg.end
+                })
+            
+            # Convert to standard format
+            return {
+                "text": raw_result.get("text", ""),
+                "language": raw_result.get("language_code", "auto-detected"),
+                "segments": formatted_segments,
+                "words": [{"text": w.text, "start": w.start, "end": w.end} for w in words],
+                "has_diarization": True,
+                "speakers": speakers,
+                "provider": "elevenlabs_scribe",
+                "raw_response": raw_result
+            }
+            
+        except Exception as e:
+            print(f"❌ ElevenLabs Scribe failed: {e}")
+            print("   Falling back to Whisper...")
+            # Fall back to Whisper
+            return self._transcribe_with_whisper(audio_file_path, include_timestamps=True)
+    
+    def _transcribe_with_whisper(self, audio_file_path: str, include_timestamps: bool) -> Dict:
+        """Transcribe using Whisper + optional pyannote diarization."""
+        # Get transcription from Whisper
+        result = self.model.transcribe(
+            audio_file_path,
+            word_timestamps=include_timestamps,
+            verbose=True
+        )
+        
+        # Add speaker diarization if enabled
+        diarization_result = None
+        if self.enable_diarization and self.diarization_provider == "pyannote":
+            print("\n🎯 Performing speaker diarization...")
+            print("   This may take a moment...")
+            try:
+                diarization_result = self.diarization_pipeline(audio_file_path)
+                
+                # Count speakers
+                speakers = set()
+                for _, _, speaker in diarization_result.itertracks(yield_label=True):
+                    speakers.add(speaker)
+                
+                print(f"✅ Diarization completed! Found {len(speakers)} speaker(s)")
+            except Exception as e:
+                print(f"Diarization failed: {e}")
+        
+        # Combine transcription with speaker labels
+        enhanced_segments = self._combine_transcription_and_diarization(
+            result.get("segments", []), 
+            diarization_result
+        )
+        
+        return {
+            "text": result["text"],
+            "language": result["language"],
+            "segments": enhanced_segments,
+            "words": result.get("words", []) if include_timestamps else [],
+            "has_diarization": diarization_result is not None,
+            "provider": "whisper+pyannote" if diarization_result else "whisper"
+        }
     
     def _combine_transcription_and_diarization(self, segments: List[Dict], diarization) -> List[Dict]:
         """

@@ -77,29 +77,37 @@ def transcribe_file(file_path: str):
     print("\n⚙️  Transcription Options:")
     print("1. Fast (tiny model, no diarization)")
     print("2. Balanced (base model, no diarization)")
-    print("3. Accurate (base model + speaker diarization)")
-    print("4. Best (large model + diarization) [slow]")
+    print("3. Accurate (base model + pyannote diarization)")
+    print("4. Best (large model + pyannote diarization) [slow]")
+    print("5. 🎆 Premium (ElevenLabs Scribe - best accuracy + 32 speakers)")
     
-    choice = input("Choose option (1-4) [2]: ").strip() or "2"
+    choice = input("Choose option (1-5) [2]: ").strip() or "2"
     
     # Map choices
     options = {
-        "1": ("tiny", False),
-        "2": ("base", False),
-        "3": ("base", True),
-        "4": ("large", True)
+        "1": ("tiny", False, "whisper"),
+        "2": ("base", False, "whisper"),
+        "3": ("base", True, "pyannote"),
+        "4": ("large", True, "pyannote"),
+        "5": ("base", True, "elevenlabs")
     }
     
-    model_size, enable_diarization = options.get(choice, ("base", False))
+    model_size, enable_diarization, provider = options.get(choice, ("base", False, "whisper"))
     
     # Initialize transcriber
-    print(f"\n🔄 Transcribing with {model_size} model...")
-    if enable_diarization:
-        print("   Including speaker diarization (this may take longer)...")
+    if provider == "elevenlabs":
+        print("\n🚀 Using ElevenLabs Scribe (premium accuracy + diarization)...")
+        print("   • Up to 32 speakers supported")
+        print("   • 96.7% accuracy + audio event detection")
+    else:
+        print(f"\n🔄 Transcribing with {model_size} model...")
+        if enable_diarization:
+            print(f"   Including speaker diarization with {provider} (this may take longer)...")
     
     transcriber = AudioTranscriber(
         model_size=model_size,
-        enable_diarization=enable_diarization
+        enable_diarization=enable_diarization,
+        diarization_provider=provider
     )
     
     # Transcribe

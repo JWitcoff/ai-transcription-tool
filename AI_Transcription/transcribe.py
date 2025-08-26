@@ -26,21 +26,23 @@ def print_menu():
     """Display the main menu"""
     print(BANNER)
     print("Choose transcription mode:\n")
-    print("  1️⃣  📁 Transcribe File/URL")
-    print("       • YouTube videos, local audio/video files")
-    print("       • Speaker identification available")
+    print("  1️⃣  🎯 Quick URL Transcription ⭐ RECOMMENDED")
+    print("       • Enter any video URL → Get complete analysis")
+    print("       • Auto-transcription + speaker ID + AI summary")
+    print("       • Dead simple: one URL, complete results")
     print()
-    print("  2️⃣  🎙️  Live Transcription")
+    print("  2️⃣  📁 Advanced File/URL Options")
+    print("       • Manual quality selection")
+    print("       • Local files and batch processing")
+    print("       • Advanced configuration")
+    print()
+    print("  3️⃣  🎙️  Live Transcription")
     print("       • Real-time transcription from microphone")
     print("       • See text as you speak")
     print()
-    print("  3️⃣  🌐 Web Interface")
+    print("  4️⃣  🌐 Web Interface")
     print("       • Browser-based interface with Streamlit")
     print("       • Download transcripts in multiple formats")
-    print()
-    print("  4️⃣  🚀 Quick Transcribe")
-    print("       • Fastest mode for quick results")
-    print("       • Minimal configuration")
     print()
     print("  5️⃣  📊 Batch Processing")
     print("       • Process multiple files at once")
@@ -54,13 +56,29 @@ def print_menu():
     print()
     print("─" * 60)
 
-def transcribe_file_or_url():
-    """Option 1: Transcribe a file or URL"""
+def quick_url_transcription():
+    """Option 1: Quick URL transcription"""
     clear_screen()
-    print("📁 FILE/URL TRANSCRIPTION MODE")
+    print("🎯 QUICK URL TRANSCRIPTION")
     print("=" * 60)
     
-    # Import and run simple_transcribe
+    # Import and run quick URL transcribe
+    try:
+        from quick_url_transcribe import main as quick_main
+        quick_main()
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        input("\nPress Enter to return to menu...")
+
+def advanced_file_url():
+    """Option 2: Advanced file/URL options"""
+    clear_screen()
+    print("📁 ADVANCED FILE/URL TRANSCRIPTION")
+    print("=" * 60)
+    
+    # Import and run simple_transcribe (the old complex version)
     try:
         from simple_transcribe import main as simple_main
         simple_main()
@@ -345,13 +363,13 @@ def main():
             print("\n👋 Goodbye!\n")
             sys.exit(0)
         elif choice == "1":
-            transcribe_file_or_url()
+            quick_url_transcription()
         elif choice == "2":
-            live_transcription()
+            advanced_file_url()
         elif choice == "3":
-            web_interface()
+            live_transcription()
         elif choice == "4":
-            quick_transcribe()
+            web_interface()
         elif choice == "5":
             batch_processing()
         elif choice == "6":
