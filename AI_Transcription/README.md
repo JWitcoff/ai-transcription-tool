@@ -4,6 +4,7 @@ A powerful, all-in-one audio/video transcription tool powered by ElevenLabs Scri
 
 ## ✨ Features
 
+- 🎵 **Audio Only Mode**: Download audio from any URL without transcription (NEW!)
 - 🎙️ **Multiple Input Sources**: YouTube videos, local files, live microphone
 - 🎯 **Speaker Diarization**: Automatically identify different speakers
 - ⚡ **Live Transcription**: Real-time speech-to-text from microphone
@@ -64,16 +65,39 @@ That's it! The interactive menu will guide you through all options.
 python transcribe.py
 ```
 
-This opens an interactive menu with all transcription modes:
+This opens an interactive menu with all modes:
 
-1. **🎯 Quick URL Transcription** ⭐ RECOMMENDED - Enter any video URL → Get complete analysis
-2. **📁 Advanced File/URL Options** - Manual quality selection and batch processing  
-3. **🎙️ Live Transcription** - Real-time from your microphone
-4. **🌐 Web Interface** - Browser-based with downloads
-5. **📊 Batch Processing** - Multiple files at once
-6. **⚙️ Settings & Help** - Configure and learn
+**🎵 Audio Only Modes:**
+1. **🎵 Audio Download Only** - Download audio without transcription (MP3/WAV/FLAC)
+
+**🎬 Transcription Modes:**
+2. **🎯 Quick URL Transcription** ⭐ RECOMMENDED - Enter any video URL → Get complete analysis
+3. **📁 Advanced File/URL Options** - Manual quality selection and batch processing  
+4. **🎙️ Live Transcription** - Real-time from your microphone
+5. **🌐 Web Interface** - Browser-based with downloads
+6. **📊 Batch Processing** - Multiple files at once
+7. **📋 Template Analysis** - Professional structured output
+8. **🗂️ Session Management** - View and organize past transcriptions
+9. **⚙️ Settings & Help** - Configure and learn
 
 ## 📖 Detailed Usage
+
+### Example: Audio Download Only (NEW!) 🎵
+
+**Fast audio extraction without transcription:**
+```bash
+python transcribe.py
+```
+1. Choose option 1 (Audio Download Only)
+2. Enter your video URL (YouTube, Twitch, etc.)
+3. Select format: MP3 (compressed), WAV (uncompressed), or FLAC (lossless)
+4. Audio downloads to `downloads/` folder with metadata
+
+**Perfect for:**
+- Building audio libraries for later processing
+- Getting high-quality audio files quickly
+- Podcast episode downloads
+- Music/interview extraction
 
 ### Example: Quick YouTube Video Transcription ⭐ RECOMMENDED
 

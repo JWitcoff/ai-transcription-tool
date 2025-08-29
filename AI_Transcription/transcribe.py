@@ -25,40 +25,49 @@ def clear_screen():
 def print_menu():
     """Display the main menu"""
     print(BANNER)
-    print("Choose transcription mode:\n")
-    print("  1️⃣  🎯 Quick URL Transcription ⭐ RECOMMENDED")
+    print("Choose mode:\n")
+    
+    print("🎵 AUDIO ONLY MODES:")
+    print("  1️⃣  🎵 Audio Download Only")
+    print("       • Download audio from any URL without transcription")
+    print("       • Save as MP3, WAV, or FLAC format")
+    print("       • Quick audio extraction for later use")
+    print()
+    
+    print("🎬 TRANSCRIPTION MODES:")
+    print("  2️⃣  🎯 Quick URL Transcription ⭐ RECOMMENDED")
     print("       • Enter any video URL → Get complete analysis")
     print("       • Custom analysis prompts + organized file saving")
     print("       • Dead simple: one URL, complete results")
     print()
-    print("  2️⃣  📁 Advanced File/URL Options")
+    print("  3️⃣  📁 Advanced File/URL Options")
     print("       • Manual quality selection")
     print("       • Local files and batch processing")
     print("       • Advanced configuration")
     print()
-    print("  3️⃣  🎙️  Live Transcription")
+    print("  4️⃣  🎙️  Live Transcription")
     print("       • Real-time transcription from microphone")
     print("       • See text as you speak")
     print()
-    print("  4️⃣  🌐 Web Interface")
+    print("  5️⃣  🌐 Web Interface")
     print("       • Browser-based interface with Streamlit")
     print("       • Download transcripts in multiple formats")
     print()
-    print("  5️⃣  📊 Batch Processing")
+    print("  6️⃣  📊 Batch Processing")
     print("       • Process multiple files at once")
     print("       • Automated workflow")
     print()
-    print("  6️⃣  📋 Template Analysis")
+    print("  7️⃣  📋 Template Analysis")
     print("       • Use pre-made analysis templates")
     print("       • Interview, Tutorial, Meeting notes, etc.")
     print("       • Professional structured output")
     print()
-    print("  7️⃣  🗂️  Session Management")
+    print("  8️⃣  🗂️  Session Management")
     print("       • View past transcriptions")
     print("       • Search and organize sessions")
     print("       • Export session lists")
     print()
-    print("  8️⃣  ⚙️  Settings & Help")
+    print("  9️⃣  ⚙️  Settings & Help")
     print("       • Configure API keys")
     print("       • View documentation")
     print("       • System diagnostics")
@@ -66,6 +75,148 @@ def print_menu():
     print("  0️⃣  ❌ Exit")
     print()
     print("─" * 60)
+
+def audio_download_only():
+    """Option 1: Audio download without transcription"""
+    clear_screen()
+    print("🎵 AUDIO DOWNLOAD ONLY")
+    print("=" * 60)
+    print("\nDownload audio from any URL without transcription")
+    print("Supports: YouTube, Twitch, Vimeo, SoundCloud, and 1000+ sites\n")
+    
+    # Get URL from user
+    url = input("📥 Enter URL: ").strip()
+    
+    if not url:
+        print("❌ Please enter a valid URL")
+        input("\nPress Enter to return to menu...")
+        return
+    
+    print(f"\n📥 Downloading audio from: {url}")
+    
+    try:
+        # Import required modules
+        import yt_dlp
+        import tempfile
+        from datetime import datetime
+        from pathlib import Path
+        import json
+        import shutil
+        
+        # Create downloads directory
+        downloads_dir = Path("downloads")
+        downloads_dir.mkdir(exist_ok=True)
+        
+        # Generate session folder
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Get format choice from user
+        print("\n🎵 Choose audio format:")
+        print("1. MP3 (compressed, smaller file)")
+        print("2. WAV (uncompressed, high quality)")
+        print("3. FLAC (lossless compression)")
+        
+        format_choice = input("\nFormat choice (1-3, default: 1): ").strip() or "1"
+        
+        format_map = {
+            "1": {"ext": "mp3", "codec": "mp3", "quality": "192"},
+            "2": {"ext": "wav", "codec": "wav", "quality": "192"},
+            "3": {"ext": "flac", "codec": "flac", "quality": "192"}
+        }
+        
+        audio_format = format_map.get(format_choice, format_map["1"])
+        
+        # Setup yt-dlp options for download
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'outtmpl': str(downloads_dir / f"{timestamp}_%(title)s.%(ext)s"),
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': audio_format['codec'],
+                'preferredquality': audio_format['quality'],
+            }],
+            'quiet': False,
+            'no_warnings': False,
+        }
+        
+        print(f"\n⏳ Downloading as {audio_format['ext'].upper()}...")
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            # Extract video info first
+            info = ydl.extract_info(url, download=False)
+            title = info.get('title', 'Unknown')
+            duration = info.get('duration', 0)
+            description = info.get('description', '')
+            uploader = info.get('uploader', 'Unknown')
+            upload_date = info.get('upload_date', '')
+            
+            print(f"   Title: {title}")
+            print(f"   Duration: {duration//60 if duration else 0}:{duration%60:02d if duration else 0}")
+            print(f"   Uploader: {uploader}")
+            
+            # Now download the audio
+            print("\n🎵 Extracting audio...")
+            ydl.download([url])
+            
+            # Find the downloaded file
+            downloaded_files = list(downloads_dir.glob(f"{timestamp}_*.{audio_format['ext']}"))
+            
+            if downloaded_files:
+                audio_file = downloaded_files[0]
+                file_size = audio_file.stat().st_size
+                
+                # Create session folder and move file
+                session_folder = downloads_dir / f"{timestamp}_{title[:50].replace('/', '_')}"
+                session_folder.mkdir(exist_ok=True)
+                
+                final_file = session_folder / f"{title[:100].replace('/', '_')}.{audio_format['ext']}"
+                shutil.move(str(audio_file), str(final_file))
+                
+                # Save metadata
+                metadata = {
+                    'title': title,
+                    'duration': duration,
+                    'description': description,
+                    'uploader': uploader,
+                    'upload_date': upload_date,
+                    'url': url,
+                    'download_date': datetime.now().isoformat(),
+                    'format': audio_format['ext'],
+                    'file_size': file_size,
+                    'file_path': str(final_file)
+                }
+                
+                metadata_file = session_folder / "metadata.json"
+                with open(metadata_file, 'w', encoding='utf-8') as f:
+                    json.dump(metadata, f, indent=2, ensure_ascii=False)
+                
+                print(f"\n✅ Audio download complete!")
+                print(f"   📂 Saved to: {session_folder}")
+                print(f"   📄 File: {final_file.name}")
+                print(f"   📏 Size: {file_size / (1024*1024):.1f} MB")
+                print(f"   🎵 Format: {audio_format['ext'].upper()}")
+                
+                # Option to open folder
+                if input("\n📂 Open downloads folder? (y/n): ").strip().lower() == 'y':
+                    import subprocess
+                    import platform
+                    
+                    if platform.system() == "Darwin":  # macOS
+                        subprocess.run(["open", str(session_folder)])
+                    elif platform.system() == "Windows":
+                        subprocess.run(["explorer", str(session_folder)])
+                    else:  # Linux
+                        subprocess.run(["xdg-open", str(session_folder)])
+                
+            else:
+                print("❌ Downloaded file not found")
+                
+    except Exception as e:
+        print(f"❌ Download failed: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    input("\nPress Enter to return to menu...")
 
 def quick_url_transcription():
     """Option 1: Quick URL transcription"""
@@ -584,26 +735,28 @@ def main():
         clear_screen()
         print_menu()
         
-        choice = input("Enter your choice (0-8): ").strip()
+        choice = input("Enter your choice (0-9): ").strip()
         
         if choice == "0":
             print("\n👋 Goodbye!\n")
             sys.exit(0)
         elif choice == "1":
-            quick_url_transcription()
+            audio_download_only()
         elif choice == "2":
-            advanced_file_url()
+            quick_url_transcription()
         elif choice == "3":
-            live_transcription()
+            advanced_file_url()
         elif choice == "4":
-            web_interface()
+            live_transcription()
         elif choice == "5":
-            batch_processing()
+            web_interface()
         elif choice == "6":
-            template_analysis()
+            batch_processing()
         elif choice == "7":
-            session_management()
+            template_analysis()
         elif choice == "8":
+            session_management()
+        elif choice == "9":
             settings_and_help()
         else:
             print("❌ Invalid choice. Please try again.")

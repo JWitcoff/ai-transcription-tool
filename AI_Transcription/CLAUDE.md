@@ -9,6 +9,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Main interactive menu (recommended)
 python transcribe.py
 
+# Audio Only Mode (new!)
+# - Option 1: Download audio without transcription
+# - Choose MP3, WAV, or FLAC format
+
+# Transcription Modes
+# - Option 2: Quick URL transcription (direct workflow)
+# - Options 3-9: All existing transcription features
+
 # Quick URL transcription (direct workflow)
 python quick_url_transcribe.py
 
@@ -100,7 +108,11 @@ sudo apt install ffmpeg  # Linux
 
 ### Development Testing
 ```bash
-# Test with sample YouTube URL
+# Test audio download only mode
+python transcribe.py
+# Choose option 1, enter a YouTube URL, select format (MP3/WAV/FLAC)
+
+# Test with sample YouTube URL (transcription)
 python quick_url_transcribe.py "https://www.youtube.com/watch?v=6KOxyJlgbyw"
 
 # Test enhanced extraction with explicit rubric
