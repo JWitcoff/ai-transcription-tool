@@ -9,6 +9,10 @@ A powerful, all-in-one audio/video transcription tool powered by ElevenLabs Scri
 - ⚡ **Live Transcription**: Real-time speech-to-text from microphone
 - 📊 **Batch Processing**: Transcribe multiple files at once
 - 🤖 **AI Analysis**: Summarization, theme extraction, sentiment analysis
+- 🧠 **Enhanced Deep Extraction**: Content-aware analysis with pluggable rubrics
+- 🔍 **Smart Content Detection**: Automatically identifies content type (prompting, YouTube, etc.)
+- ✅ **Quality Validation**: Fragment validation, schema compliance, and round-trip testing
+- 📈 **Production Telemetry**: Full provenance tracking and quality metrics
 - 📥 **Smart Downloads**: Export as TXT, SRT subtitles, or JSON
 - 🌐 **Web Interface**: Beautiful Streamlit app with download buttons
 - 🚀 **Multiple Quality Modes**: From fast to ultra-accurate
@@ -175,6 +179,55 @@ The AI Transcription Tool uses an intelligent **automatic provider selection** s
 
 - **🎯 For 99% of users:** Just use Quick URL Transcription (`python quick_url_transcribe.py`)
 - **⚙️ For specific quality needs:** Use Advanced Options to manually select models
+
+## 🧠 Enhanced Deep Extraction (NEW!)
+
+The system now includes a production-ready deep extraction pipeline that automatically adapts to different content types:
+
+### Automatic Content Detection
+The system automatically identifies and applies the appropriate analysis framework:
+
+- **🎯 Prompting Content** → Extracts prompt engineering patterns, guardrails, templates
+- **📺 YouTube Content** → Extracts growth frameworks, metrics, case studies
+- **📚 Educational Content** → Extracts key lessons, concepts, examples
+- **🎙️ Interviews/Podcasts** → Extracts insights, quotes, themes
+
+### Using Enhanced Extraction
+
+**Automatic mode (recommended):**
+```python
+# The system automatically detects content type
+python quick_url_transcribe.py "https://youtube.com/watch?v=prompting_tutorial"
+# → Automatically uses prompting_claude_v1 rubric
+```
+
+**Explicit rubric selection:**
+```python
+# Force a specific rubric
+python transcribe.py --rubric prompting_claude_v1
+```
+
+### Quality Features
+
+- **Fragment Validation**: Rejects broken/incomplete text fragments
+- **Sentence Boundary Checking**: Ensures extracted content is grammatically complete
+- **Concept Whitelisting**: Validates domain-specific terminology
+- **Schema Compliance**: Ensures output follows expected structure
+- **Round-trip Validation**: Verifies extracted templates are actually usable
+
+### Telemetry & Monitoring
+
+Every extraction includes detailed telemetry:
+```json
+{
+  "transcriber": "whisper|scribe",
+  "rubric": "prompting_claude_v1",
+  "fragment_quality": 0.85,
+  "schema_compliance": 0.92,
+  "round_trip_valid": true,
+  "fallback_triggered": false
+}
+```
 
 ## ⚙️ Configuration
 
