@@ -10,14 +10,10 @@ A powerful, all-in-one audio/video transcription tool powered by ElevenLabs Scri
 - ⚡ **Live Transcription**: Real-time speech-to-text from microphone
 - 📊 **Batch Processing**: Transcribe multiple files at once
 - 🤖 **AI Analysis**: Summarization, theme extraction, sentiment analysis
-- 🧠 **Enhanced Deep Extraction**: Content-aware analysis with pluggable rubrics
-- 🔍 **Smart Content Detection**: Automatically identifies content type (prompting, YouTube, etc.)
-- ✅ **Quality Validation**: Fragment validation, schema compliance, and round-trip testing
-- 📈 **Truthful Telemetry**: Verifiable metrics without fake coverage percentages
-- 🛡️ **Smart Guards**: Prevents rubric leakage and fragment artifacts
-- ⚖️ **Contract System**: Pydantic-based output validation with strict schemas
-- 🎯 **Timestamp Alignment**: Order-preserving fuzzy matching for chapter navigation
-- 📥 **Smart Downloads**: Export as TXT, SRT subtitles, or JSON
+- 🧠 **Custom Analysis Prompts**: Ask specific questions about your content (NEW!)
+- 📋 **Professional Templates**: Pre-built analysis for interviews, tutorials, meetings (NEW!)
+- 📂 **Smart File Organization**: Organized session folders with metadata (NEW!)
+- 📥 **Multiple Export Formats**: TXT, SRT subtitles, VTT captions, JSON, Markdown
 - 🌐 **Web Interface**: Beautiful Streamlit app with download buttons
 - 🚀 **Multiple Quality Modes**: From fast to ultra-accurate
 
@@ -111,14 +107,14 @@ python quick_url_transcribe.py
 
 **Or via the main menu:**
 1. Run `python transcribe.py`  
-2. Choose option 1 (Quick URL Transcription)
-3. Enter your YouTube URL
-4. Complete analysis is generated automatically
+2. Choose option 2 (Quick URL Transcription)
+3. Enter your YouTube URL  
+4. Choose custom analysis prompt or use defaults
 
 ### Example: Live Transcription
 
 1. Run `python transcribe.py`
-2. Choose option 3 (Live Transcription)
+2. Choose option 4 (Live Transcription)
 3. Start speaking into your microphone
 4. Press Ctrl+C to stop
 5. Save the transcript when prompted
@@ -190,7 +186,7 @@ The AI Transcription Tool uses an intelligent **automatic provider selection** s
 
 ### ⚙️ Advanced Manual Options (For Power Users)
 
-**Only available via `python transcribe.py` → Option 2 (Advanced File/URL Options):**
+**Only available via `python transcribe.py` → Option 3 (Advanced File/URL Options):**
 
 | Option | Tech Stack | Accuracy | Speakers | Cost | Best For |
 |--------|------------|----------|----------|------|----------|
@@ -207,81 +203,27 @@ The AI Transcription Tool uses an intelligent **automatic provider selection** s
 - **🎯 For 99% of users:** Just use Quick URL Transcription (`python quick_url_transcribe.py`)
 - **⚙️ For specific quality needs:** Use Advanced Options to manually select models
 
-## 🧠 Enhanced Deep Extraction (NEW!)
+## 🧠 Custom Analysis & Templates (NEW!)
 
-The system now includes a production-ready deep extraction pipeline that automatically adapts to different content types:
+Ask specific questions about your content instead of generic summaries:
 
-### Automatic Content Detection
-The system automatically identifies and applies the appropriate analysis framework:
-
-- **🎯 Prompting Content** → Extracts prompt engineering patterns, guardrails, templates
-- **📺 YouTube Content** → Extracts growth frameworks, metrics, case studies
-- **📚 Educational Content** → Extracts key lessons, concepts, examples
-- **🎙️ Interviews/Podcasts** → Extracts insights, quotes, themes
-
-### Using Enhanced Extraction
-
-**Automatic mode (recommended):**
-```python
-# The system automatically detects content type
-python quick_url_transcribe.py "https://youtube.com/watch?v=prompting_tutorial"
-# → Automatically uses prompting_claude_v1 rubric
+### Custom Analysis Prompts
+```bash
+python quick_url_transcribe.py
+# Enter URL, then specify what you want to learn:
+# "Extract all YouTube growth tips"
+# "List the main arguments and evidence" 
+# "What are the action items mentioned?"
 ```
 
-**Explicit rubric selection:**
-```python
-# Force a specific rubric
-python transcribe.py --rubric prompting_claude_v1
-```
+### Professional Templates
+Pre-built analysis templates for common use cases:
+- **📋 Interview Analysis**: Extract key insights, quotes, themes
+- **🎓 Tutorial Breakdown**: Learning objectives, steps, examples  
+- **🤝 Meeting Notes**: Action items, decisions, follow-ups
+- **📊 Business Content**: Frameworks, metrics, case studies
 
-### Quality Features
-
-- **Fragment Validation**: Rejects broken/incomplete text fragments
-- **Sentence Boundary Checking**: Ensures extracted content is grammatically complete
-- **Concept Whitelisting**: Validates domain-specific terminology
-- **Schema Compliance**: Ensures output follows expected structure
-- **Round-trip Validation**: Verifies extracted templates are actually usable
-
-### Truthful Telemetry & Monitoring (NEW!)
-
-The system now provides **honest, verifiable metrics** instead of misleading coverage percentages:
-
-**❌ Previous (Fake Metrics):**
-```
-Coverage: 101.0% of key elements extracted  
-Found: 539 frameworks, 2 metrics
-```
-
-**✅ Now (Truthful Metrics):**
-```
-Content: 3 frameworks, 2 metrics, 1 case studies
-Key Concepts: CCN fit, 7/15/30
-JSON Valid: ✅, Schema Compliant: ✅
-Provider: whisper, Method: openai_gpt4
-```
-
-**Telemetry Data Structure:**
-```json
-{
-  "transcriber": "whisper|scribe",
-  "rubric": "prompting_claude_v1",
-  "items_extracted": 5,
-  "chapters": 3,
-  "advice": 2,
-  "json_valid": true,
-  "schema_compliant": true,
-  "timestamp_alignment": true,
-  "processing_time_ms": 1500,
-  "contract_violations": 0
-}
-```
-
-**Key Improvements:**
-- ✅ **Actual counts** instead of inflated "framework" numbers
-- ✅ **Boolean indicators** instead of fake percentages
-- ✅ **Verifiable data** that can be independently validated
-- ✅ **Honest error reporting** with specific validation issues
-- ✅ **Session tracking** for quality monitoring over time
+Access via menu option 7 (Template Analysis).
 
 ## ⚙️ Configuration
 
