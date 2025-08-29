@@ -97,7 +97,11 @@ This is a multi-provider AI transcription system with intelligent fallback archi
 **Pluggable Rubric Architecture:**
 - **Rubric Selector** (`extractors/rubric_selector.py`) - Automatic content-type detection
 - **Enhanced Validator** (`extractors/enhanced_validator.py`) - Fragment quality and schema compliance
-- **Telemetry Collector** (`extractors/telemetry.py`) - Full provenance tracking
+- **Contract System** (`extractors/contracts.py`) - Pydantic-based output validation
+- **Fragment Guards** (`extractors/guards.py`) - Smart guards against rubric leakage
+- **Timestamp Alignment** (`extractors/align.py`) - Order-preserving fuzzy matching for SRT/VTT
+- **Truthful Telemetry** (`extractors/truthful_telemetry.py`) - Verifiable metrics without fake data
+- **Legacy Telemetry** (`extractors/telemetry.py`) - Full provenance tracking
 
 **Available Rubrics:**
 - `prompting_claude_v1` - Prompt engineering content (role, guardrails, templates)
@@ -105,10 +109,12 @@ This is a multi-provider AI transcription system with intelligent fallback archi
 
 **Quality Pipeline:**
 1. Content detection → Select appropriate rubric
-2. Fragment validation → Reject broken text
-3. Schema compliance → Ensure structure
-4. Round-trip testing → Verify usability
-5. Telemetry logging → Track quality metrics
+2. Contract validation → Enforce strict output schema
+3. Fragment validation → Reject broken text with smart guards
+4. Schema compliance → Ensure structure
+5. Timestamp alignment → Map chapters to SRT/VTT timestamps
+6. Round-trip testing → Verify usability
+7. Truthful telemetry → Log verifiable metrics only
 
 ### Output Formats
 
@@ -241,6 +247,44 @@ To add a new content type rubric:
 3. Create extraction prompts in `extractors/[domain]_prompts.py`
 4. Add validation rules to `enhanced_validator.py`
 
+### Truthful Telemetry System (NEW!)
+
+The system now uses **truthful, verifiable metrics** instead of fake coverage percentages:
+
+**Before (Fake):**
+```
+Coverage: 101.0% of key elements extracted
+Found: 539 frameworks, 2 metrics
+```
+
+**After (Truthful):**
+```
+Content: 3 frameworks, 2 metrics, 1 case studies
+Key Concepts: CCN fit, 7/15/30
+Method: openai_gpt4
+```
+
+**Using Truthful Telemetry:**
+```python
+from extractors.truthful_telemetry import get_global_collector, finalize_session
+
+# Get session statistics
+collector = get_global_collector()
+report = collector.get_session_report()
+print(f"Success rate: {report['session_stats']['success_rate']:.1%}")
+print(f"Contract compliance: {report['session_stats']['contract_compliance_rate']:.1%}")
+
+# Finalize session (prints summary and saves report)
+finalize_session()
+```
+
+**Key Benefits:**
+- ✅ Only counts actual extracted items (no inflation)
+- ✅ Boolean quality indicators instead of fake percentages  
+- ✅ Honest error reporting with specific issues
+- ✅ Verifiable processing metadata (provider, method, timing)
+- ✅ Session-level statistics for quality monitoring
+
 ### Testing
 
 Run comprehensive tests:
@@ -262,4 +306,20 @@ from extractors.enhanced_validator import EnhancedValidator
 validator = EnhancedValidator("prompting_claude_v1")
 quality = validator._validate_fragment_quality("Set temperature=0")
 print(quality.quality)  # FragmentQuality.VALID
+
+# Test contract validation
+from extractors.contracts import validate_with_repair
+payload = {"chapters": [...], "advice": [...]}
+validated = validate_with_repair(payload, "extract business advice")
+print(validated.provenance)  # "contract_based"
+
+# Test truthful telemetry
+from extractors.truthful_telemetry import TruthfulTelemetryCollector
+collector = TruthfulTelemetryCollector()
+metrics = collector.record_extraction_attempt(
+    extraction_result={"chapters": [{"title": "Test", "summary": "A test chapter"}]},
+    transcript_metadata={"provider": "whisper", "text": "sample transcript"},
+    processing_metadata={"method": "openai_gpt4", "duration_ms": 1500}
+)
+print(f"Items extracted: {metrics.total_items_extracted}")
 ```

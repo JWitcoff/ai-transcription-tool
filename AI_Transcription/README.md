@@ -12,7 +12,10 @@ A powerful, all-in-one audio/video transcription tool powered by ElevenLabs Scri
 - 🧠 **Enhanced Deep Extraction**: Content-aware analysis with pluggable rubrics
 - 🔍 **Smart Content Detection**: Automatically identifies content type (prompting, YouTube, etc.)
 - ✅ **Quality Validation**: Fragment validation, schema compliance, and round-trip testing
-- 📈 **Production Telemetry**: Full provenance tracking and quality metrics
+- 📈 **Truthful Telemetry**: Verifiable metrics without fake coverage percentages
+- 🛡️ **Smart Guards**: Prevents rubric leakage and fragment artifacts
+- ⚖️ **Contract System**: Pydantic-based output validation with strict schemas
+- 🎯 **Timestamp Alignment**: Order-preserving fuzzy matching for chapter navigation
 - 📥 **Smart Downloads**: Export as TXT, SRT subtitles, or JSON
 - 🌐 **Web Interface**: Beautiful Streamlit app with download buttons
 - 🚀 **Multiple Quality Modes**: From fast to ultra-accurate
@@ -215,19 +218,46 @@ python transcribe.py --rubric prompting_claude_v1
 - **Schema Compliance**: Ensures output follows expected structure
 - **Round-trip Validation**: Verifies extracted templates are actually usable
 
-### Telemetry & Monitoring
+### Truthful Telemetry & Monitoring (NEW!)
 
-Every extraction includes detailed telemetry:
+The system now provides **honest, verifiable metrics** instead of misleading coverage percentages:
+
+**❌ Previous (Fake Metrics):**
+```
+Coverage: 101.0% of key elements extracted  
+Found: 539 frameworks, 2 metrics
+```
+
+**✅ Now (Truthful Metrics):**
+```
+Content: 3 frameworks, 2 metrics, 1 case studies
+Key Concepts: CCN fit, 7/15/30
+JSON Valid: ✅, Schema Compliant: ✅
+Provider: whisper, Method: openai_gpt4
+```
+
+**Telemetry Data Structure:**
 ```json
 {
   "transcriber": "whisper|scribe",
   "rubric": "prompting_claude_v1",
-  "fragment_quality": 0.85,
-  "schema_compliance": 0.92,
-  "round_trip_valid": true,
-  "fallback_triggered": false
+  "items_extracted": 5,
+  "chapters": 3,
+  "advice": 2,
+  "json_valid": true,
+  "schema_compliant": true,
+  "timestamp_alignment": true,
+  "processing_time_ms": 1500,
+  "contract_violations": 0
 }
 ```
+
+**Key Improvements:**
+- ✅ **Actual counts** instead of inflated "framework" numbers
+- ✅ **Boolean indicators** instead of fake percentages
+- ✅ **Verifiable data** that can be independently validated
+- ✅ **Honest error reporting** with specific validation issues
+- ✅ **Session tracking** for quality monitoring over time
 
 ## ⚙️ Configuration
 
