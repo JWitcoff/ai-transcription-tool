@@ -151,7 +151,12 @@ def audio_download_only():
             upload_date = info.get('upload_date', '')
             
             print(f"   Title: {title}")
-            print(f"   Duration: {duration//60 if duration else 0}:{duration%60:02d if duration else 0}")
+            if duration:
+                minutes = duration // 60
+                seconds = duration % 60
+                print(f"   Duration: {minutes}:{seconds:02d}")
+            else:
+                print("   Duration: Unknown")
             print(f"   Uploader: {uploader}")
             
             # Now download the audio
