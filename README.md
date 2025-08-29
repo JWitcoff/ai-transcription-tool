@@ -4,12 +4,16 @@ A powerful, all-in-one audio/video transcription tool powered by ElevenLabs Scri
 
 ## ✨ Features
 
+- 🎵 **Audio Only Mode**: Download audio from any URL without transcription (NEW!)
 - 🎙️ **Multiple Input Sources**: YouTube videos, local files, live microphone
 - 🎯 **Speaker Diarization**: Automatically identify different speakers
 - ⚡ **Live Transcription**: Real-time speech-to-text from microphone
 - 📊 **Batch Processing**: Transcribe multiple files at once
 - 🤖 **AI Analysis**: Summarization, theme extraction, sentiment analysis
-- 📥 **Smart Downloads**: Export as TXT, SRT subtitles, or JSON
+- 🧠 **Custom Analysis Prompts**: Ask specific questions about your content (NEW!)
+- 📋 **Professional Templates**: Pre-built analysis for interviews, tutorials, meetings (NEW!)
+- 📂 **Smart File Organization**: Organized session folders with metadata (NEW!)
+- 📥 **Multiple Export Formats**: TXT, SRT subtitles, VTT captions, JSON, Markdown
 - 🌐 **Web Interface**: Beautiful Streamlit app with download buttons
 - 🚀 **Multiple Quality Modes**: From fast to ultra-accurate
 
@@ -57,16 +61,39 @@ That's it! The interactive menu will guide you through all options.
 python transcribe.py
 ```
 
-This opens an interactive menu with all transcription modes:
+This opens an interactive menu with all modes:
 
-1. **🎯 Quick URL Transcription** ⭐ RECOMMENDED - Enter any video URL → Get complete analysis
-2. **📁 Advanced File/URL Options** - Manual quality selection and batch processing  
-3. **🎙️ Live Transcription** - Real-time from your microphone
-4. **🌐 Web Interface** - Browser-based with downloads
-5. **📊 Batch Processing** - Multiple files at once
-6. **⚙️ Settings & Help** - Configure and learn
+**🎵 Audio Only Modes:**
+1. **🎵 Audio Download Only** - Download audio without transcription (MP3/WAV/FLAC)
+
+**🎬 Transcription Modes:**
+2. **🎯 Quick URL Transcription** ⭐ RECOMMENDED - Enter any video URL → Get complete analysis
+3. **📁 Advanced File/URL Options** - Manual quality selection and batch processing  
+4. **🎙️ Live Transcription** - Real-time from your microphone
+5. **🌐 Web Interface** - Browser-based with downloads
+6. **📊 Batch Processing** - Multiple files at once
+7. **📋 Template Analysis** - Professional structured output
+8. **🗂️ Session Management** - View and organize past transcriptions
+9. **⚙️ Settings & Help** - Configure and learn
 
 ## 📖 Detailed Usage
+
+### Example: Audio Download Only (NEW!) 🎵
+
+**Fast audio extraction without transcription:**
+```bash
+python transcribe.py
+```
+1. Choose option 1 (Audio Download Only)
+2. Enter your video URL (YouTube, Twitch, etc.)
+3. Select format: MP3 (compressed), WAV (uncompressed), or FLAC (lossless)
+4. Audio downloads to `downloads/` folder with metadata
+
+**Perfect for:**
+- Building audio libraries for later processing
+- Getting high-quality audio files quickly
+- Podcast episode downloads
+- Music/interview extraction
 
 ### Example: Quick YouTube Video Transcription ⭐ RECOMMENDED
 
@@ -80,14 +107,14 @@ python quick_url_transcribe.py
 
 **Or via the main menu:**
 1. Run `python transcribe.py`  
-2. Choose option 1 (Quick URL Transcription)
-3. Enter your YouTube URL
-4. Complete analysis is generated automatically
+2. Choose option 2 (Quick URL Transcription)
+3. Enter your YouTube URL  
+4. Choose custom analysis prompt or use defaults
 
 ### Example: Live Transcription
 
 1. Run `python transcribe.py`
-2. Choose option 3 (Live Transcription)
+2. Choose option 4 (Live Transcription)
 3. Start speaking into your microphone
 4. Press Ctrl+C to stop
 5. Save the transcript when prompted
@@ -159,7 +186,7 @@ The AI Transcription Tool uses an intelligent **automatic provider selection** s
 
 ### ⚙️ Advanced Manual Options (For Power Users)
 
-**Only available via `python transcribe.py` → Option 2 (Advanced File/URL Options):**
+**Only available via `python transcribe.py` → Option 3 (Advanced File/URL Options):**
 
 | Option | Tech Stack | Accuracy | Speakers | Cost | Best For |
 |--------|------------|----------|----------|------|----------|
@@ -175,6 +202,28 @@ The AI Transcription Tool uses an intelligent **automatic provider selection** s
 
 - **🎯 For 99% of users:** Just use Quick URL Transcription (`python quick_url_transcribe.py`)
 - **⚙️ For specific quality needs:** Use Advanced Options to manually select models
+
+## 🧠 Custom Analysis & Templates (NEW!)
+
+Ask specific questions about your content instead of generic summaries:
+
+### Custom Analysis Prompts
+```bash
+python quick_url_transcribe.py
+# Enter URL, then specify what you want to learn:
+# "Extract all YouTube growth tips"
+# "List the main arguments and evidence" 
+# "What are the action items mentioned?"
+```
+
+### Professional Templates
+Pre-built analysis templates for common use cases:
+- **📋 Interview Analysis**: Extract key insights, quotes, themes
+- **🎓 Tutorial Breakdown**: Learning objectives, steps, examples  
+- **🤝 Meeting Notes**: Action items, decisions, follow-ups
+- **📊 Business Content**: Frameworks, metrics, case studies
+
+Access via menu option 7 (Template Analysis).
 
 ## ⚙️ Configuration
 
