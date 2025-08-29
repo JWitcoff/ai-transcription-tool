@@ -77,8 +77,8 @@ Example Output: {
             # Pass 2: Organize and structure
             structured_data = self._organize_extraction(raw_extraction, transcript)
             
-            # Pass 3: Validate and add quality check
-            final_result = self._add_quality_check(structured_data, transcript)
+            # Pass 3: Validate and add truthful quality metrics
+            final_result = self._add_truthful_quality_check(structured_data, transcript)
             
             return final_result
             
@@ -691,81 +691,120 @@ Return a structured JSON with frameworks, metrics, temporal_strategies, psycholo
         
         return organized
     
-    def _add_quality_check(self, structured_data: Dict, transcript: str) -> Dict[str, Any]:
-        """Pass 3: Add quality check and validation with standardized footer"""
+    def _add_truthful_quality_check(self, structured_data: Dict, transcript: str) -> Dict[str, Any]:
+        """Pass 3: Add truthful quality metrics without fake coverage scores"""
         
-        # Calculate coverage metrics
+        # Import truthful telemetry
+        from .truthful_telemetry import TruthfulExtractionMetrics
+        
+        # Count actual extracted items (no inflation)
         framework_count = len(structured_data.get("frameworks", []))
         metrics_count = len(structured_data.get("metrics", []))
         preserved_terms_count = len(structured_data.get("preserved_terms", []))
         case_studies_count = len(structured_data.get("case_studies", []))
         
-        # Check for key canonical items
-        canonical_items = []
+        # Identify key items found (boolean presence, not weighted scores)
+        key_items_found = []
         frameworks = structured_data.get("frameworks", [])
         
-        # Check for specific frameworks
+        # Check for specific frameworks (factual presence)
         for framework in frameworks:
             name = framework.get("name", "").lower()
             if "ccn" in name or "fit" in name:
-                canonical_items.append("CCN fit")
+                key_items_found.append("CCN fit")
             elif "7/15/30" in name or "intro" in name:
-                canonical_items.append("7/15/30")
+                key_items_found.append("7/15/30")
             elif "a→z" in name or "map" in name:
-                canonical_items.append("A→Z map")
+                key_items_found.append("A→Z map")
             elif "hide" in name and "vegetable" in name:
-                canonical_items.append("hide vegetables")
+                key_items_found.append("hide vegetables")
             elif "law" in name:
-                canonical_items.append("laws framework")
+                key_items_found.append("laws framework")
         
-        # Check temporal strategies
+        # Check for temporal content
         temporal = structured_data.get("temporal_strategies", {})
         if temporal.get("timing_principles"):
-            canonical_items.append("temporal tactics")
+            key_items_found.append("temporal tactics")
         
-        # Check metrics quality
+        # Check for significant metrics (factual presence)
+        significant_metrics = []
         if metrics_count > 0:
-            # Look for specific metrics
             for metric in structured_data.get("metrics", []):
                 value = str(metric.get("value", "")).lower()
-                if "270" in value:
-                    canonical_items.append("270x multiplier")
-                elif "62" in value and "hour" in str(metric.get("context", "")).lower():
-                    canonical_items.append("62 hours metric")
-                elif "40" in value:
-                    canonical_items.append("40x metric")
+                if any(significant in value for significant in ["270", "62", "40"]):
+                    significant_metrics.append(metric.get("value", ""))
         
-        # Coverage calculation (weighted by importance)
-        coverage_score = self._calculate_weighted_coverage(structured_data, canonical_items)
+        # Identify actual gaps (honest assessment)
+        potential_gaps = []
+        if framework_count == 0:
+            potential_gaps.append("No frameworks extracted")
+        if metrics_count == 0:
+            potential_gaps.append("No metrics found")
+        if case_studies_count == 0 and metrics_count > 0:
+            potential_gaps.append("Metrics found but no case studies")
+        if len(key_items_found) == 0:
+            potential_gaps.append("No recognized key concepts")
+            
+        # Generate truthful summary
+        summary_parts = []
+        if framework_count > 0:
+            summary_parts.append(f"{framework_count} frameworks")
+        if metrics_count > 0:
+            summary_parts.append(f"{metrics_count} metrics")
+        if case_studies_count > 0:
+            summary_parts.append(f"{case_studies_count} case studies")
+            
+        extraction_summary = ", ".join(summary_parts) if summary_parts else "No structured content"
         
-        # Identify top gap
-        gaps = self._identify_top_gaps(structured_data, canonical_items)
-        
-        # Generate footer components
-        coverage_description = self._generate_coverage_description(canonical_items, structured_data)
-        top_gap = gaps[0] if gaps else "Complete coverage achieved"
-        actionable_step = self._generate_actionable_step(structured_data)
-        
-        # Add comprehensive quality check
-        structured_data["quality_check"] = {
-            "coverage_score": round(coverage_score, 2),
-            "coverage_items": canonical_items,
-            "gaps": gaps[:3],
-            "extraction_stats": {
+        # Replace fake quality_check with truthful assessment
+        structured_data["truthful_quality"] = {
+            "extraction_summary": extraction_summary,
+            "items_extracted": {
                 "frameworks": framework_count,
-                "metrics": metrics_count,
+                "metrics": metrics_count, 
                 "preserved_terms": preserved_terms_count,
-                "case_studies": case_studies_count
+                "case_studies": case_studies_count,
+                "total": framework_count + metrics_count + case_studies_count
             },
-            "footer": {
-                "coverage": coverage_description,
-                "gaps": top_gap,
-                "actionability": actionable_step
+            "key_concepts_found": key_items_found,
+            "significant_metrics": significant_metrics,
+            "potential_gaps": potential_gaps[:3],  # Top 3 gaps
+            "schema_compliance": {
+                "has_required_fields": bool(structured_data.get("frameworks") or structured_data.get("metrics")),
+                "schema_version": structured_data.get("schema_version"),
+                "extraction_method": structured_data.get("extraction_metadata", {}).get("extraction_method", "unknown")
             },
-            "next_steps": self._suggest_next_steps(structured_data)
+            "next_steps": self._suggest_truthful_next_steps(structured_data, potential_gaps)
         }
         
         return structured_data
+    
+    def _suggest_truthful_next_steps(self, structured_data: Dict, gaps: List[str]) -> List[str]:
+        """Suggest truthful next steps based on actual extraction results"""
+        next_steps = []
+        
+        framework_count = len(structured_data.get("frameworks", []))
+        metrics_count = len(structured_data.get("metrics", []))
+        
+        # Honest recommendations based on what was actually extracted
+        if framework_count == 0:
+            next_steps.append("Look for structured approaches, methodologies, or named systems")
+        elif framework_count < 3:
+            next_steps.append("Look for additional frameworks or systematic approaches")
+            
+        if metrics_count == 0:
+            next_steps.append("Look for specific numbers, percentages, or measurable outcomes")
+        elif metrics_count > 0 and len(structured_data.get("case_studies", [])) == 0:
+            next_steps.append("Connect metrics to specific examples or case studies")
+            
+        if len(structured_data.get("preserved_terms", [])) == 0:
+            next_steps.append("Preserve domain-specific terminology and quoted phrases")
+            
+        # Default if everything looks good
+        if not next_steps:
+            next_steps.append("Extraction appears complete for this content type")
+            
+        return next_steps[:3]  # Limit to top 3
     
     def _calculate_weighted_coverage(self, data: Dict, canonical_items: List[str]) -> float:
         """Calculate weighted coverage score"""

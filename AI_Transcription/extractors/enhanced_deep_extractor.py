@@ -135,6 +135,41 @@ class EnhancedDeepExtractor:
             "processing_time_ms": processing_time
         }
         
+        # 11. Add truthful telemetry (replacing fake metrics)
+        from .truthful_telemetry import get_global_collector, log_truthful_extraction
+        
+        # Prepare metadata for truthful telemetry
+        transcript_metadata = {
+            "provider": provenance.transcriber,
+            "text": transcript,
+            "source": metadata.get("source", "unknown") if metadata else "unknown",
+            "language": provenance.language
+        }
+        
+        processing_metadata = {
+            "method": provenance.extraction_method,
+            "rubric": provenance.rubric_used,
+            "fallback_used": provenance.fallback_triggered,
+            "duration_ms": processing_time,
+            "validation": {
+                "errors": validation_result.get("errors", []),
+                "warnings": validation_result.get("warnings", []),
+                "violations": [] if validation_result.get("valid", False) else ["Schema validation failed"]
+            }
+        }
+        
+        # Log with truthful telemetry and get summary
+        truthful_summary = log_truthful_extraction(
+            transcript_id,
+            final_extraction,
+            transcript_metadata,
+            processing_metadata,
+            get_global_collector()
+        )
+        
+        # Add truthful summary to metadata
+        final_extraction["_metadata"]["truthful_summary"] = truthful_summary
+        
         return final_extraction
     
     def _initialize_telemetry(self, transcript: str, metadata: Optional[Dict]) -> ProvenanceMetadata:

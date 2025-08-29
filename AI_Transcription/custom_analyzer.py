@@ -364,19 +364,51 @@ Format as a comprehensive answer with:
                     playbook_parts.append(f"- **{name.title()}:** {context}")
             playbook_parts.append("")
         
-        # Quality check footer
-        if quality_check:
-            playbook_parts.append("## ✅ QUALITY CHECK")
-            coverage_score = quality_check.get("coverage_score", 0)
-            playbook_parts.append(f"**Coverage:** {coverage_score:.1%} of key elements extracted")
+        # Truthful quality summary (replacing fake coverage percentages)
+        truthful_quality = deep_extraction.get("truthful_quality")
+        if truthful_quality:
+            playbook_parts.append("## 📊 EXTRACTION SUMMARY")
             
-            gaps = quality_check.get("gaps", [])
+            # Show actual items extracted (no inflation)
+            items = truthful_quality.get("items_extracted", {})
+            summary = truthful_quality.get("extraction_summary", "No structured content")
+            playbook_parts.append(f"**Content:** {summary}")
+            
+            # Show key concepts found (factual)
+            key_concepts = truthful_quality.get("key_concepts_found", [])
+            if key_concepts:
+                playbook_parts.append(f"**Key Concepts:** {', '.join(key_concepts)}")
+            
+            # Show honest gaps assessment
+            gaps = truthful_quality.get("potential_gaps", [])
             if gaps:
-                playbook_parts.append(f"**Gaps:** {', '.join(gaps[:3])}")
+                playbook_parts.append(f"**Potential Gaps:** {', '.join(gaps)}")
             
+            # Show processing method (verifiable)
+            schema_info = truthful_quality.get("schema_compliance", {})
+            method = schema_info.get("extraction_method", "unknown")
+            playbook_parts.append(f"**Method:** {method}")
+        elif quality_check:
+            # Legacy fallback - show honest metrics without fake percentages
+            playbook_parts.append("## 📊 EXTRACTION SUMMARY")
             extraction_stats = quality_check.get("extraction_stats", {})
             if extraction_stats:
-                playbook_parts.append(f"**Found:** {extraction_stats.get('frameworks', 0)} frameworks, {extraction_stats.get('metrics', 0)} metrics")
+                frameworks = extraction_stats.get('frameworks', 0)
+                metrics = extraction_stats.get('metrics', 0)
+                case_studies = extraction_stats.get('case_studies', 0)
+                
+                summary_parts = []
+                if frameworks > 0:
+                    summary_parts.append(f"{frameworks} frameworks")
+                if metrics > 0:
+                    summary_parts.append(f"{metrics} metrics")
+                if case_studies > 0:
+                    summary_parts.append(f"{case_studies} case studies")
+                    
+                if summary_parts:
+                    playbook_parts.append(f"**Content:** {', '.join(summary_parts)}")
+                else:
+                    playbook_parts.append("**Content:** No structured content extracted")
         
         return "\n".join(playbook_parts)
     
