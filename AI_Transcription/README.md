@@ -4,11 +4,19 @@ A powerful, all-in-one audio/video transcription tool powered by ElevenLabs Scri
 
 ## ✨ Features
 
+- 🎵 **Audio Only Mode**: Download audio from any URL without transcription (NEW!)
 - 🎙️ **Multiple Input Sources**: YouTube videos, local files, live microphone
 - 🎯 **Speaker Diarization**: Automatically identify different speakers
 - ⚡ **Live Transcription**: Real-time speech-to-text from microphone
 - 📊 **Batch Processing**: Transcribe multiple files at once
 - 🤖 **AI Analysis**: Summarization, theme extraction, sentiment analysis
+- 🧠 **Enhanced Deep Extraction**: Content-aware analysis with pluggable rubrics
+- 🔍 **Smart Content Detection**: Automatically identifies content type (prompting, YouTube, etc.)
+- ✅ **Quality Validation**: Fragment validation, schema compliance, and round-trip testing
+- 📈 **Truthful Telemetry**: Verifiable metrics without fake coverage percentages
+- 🛡️ **Smart Guards**: Prevents rubric leakage and fragment artifacts
+- ⚖️ **Contract System**: Pydantic-based output validation with strict schemas
+- 🎯 **Timestamp Alignment**: Order-preserving fuzzy matching for chapter navigation
 - 📥 **Smart Downloads**: Export as TXT, SRT subtitles, or JSON
 - 🌐 **Web Interface**: Beautiful Streamlit app with download buttons
 - 🚀 **Multiple Quality Modes**: From fast to ultra-accurate
@@ -57,16 +65,39 @@ That's it! The interactive menu will guide you through all options.
 python transcribe.py
 ```
 
-This opens an interactive menu with all transcription modes:
+This opens an interactive menu with all modes:
 
-1. **🎯 Quick URL Transcription** ⭐ RECOMMENDED - Enter any video URL → Get complete analysis
-2. **📁 Advanced File/URL Options** - Manual quality selection and batch processing  
-3. **🎙️ Live Transcription** - Real-time from your microphone
-4. **🌐 Web Interface** - Browser-based with downloads
-5. **📊 Batch Processing** - Multiple files at once
-6. **⚙️ Settings & Help** - Configure and learn
+**🎵 Audio Only Modes:**
+1. **🎵 Audio Download Only** - Download audio without transcription (MP3/WAV/FLAC)
+
+**🎬 Transcription Modes:**
+2. **🎯 Quick URL Transcription** ⭐ RECOMMENDED - Enter any video URL → Get complete analysis
+3. **📁 Advanced File/URL Options** - Manual quality selection and batch processing  
+4. **🎙️ Live Transcription** - Real-time from your microphone
+5. **🌐 Web Interface** - Browser-based with downloads
+6. **📊 Batch Processing** - Multiple files at once
+7. **📋 Template Analysis** - Professional structured output
+8. **🗂️ Session Management** - View and organize past transcriptions
+9. **⚙️ Settings & Help** - Configure and learn
 
 ## 📖 Detailed Usage
+
+### Example: Audio Download Only (NEW!) 🎵
+
+**Fast audio extraction without transcription:**
+```bash
+python transcribe.py
+```
+1. Choose option 1 (Audio Download Only)
+2. Enter your video URL (YouTube, Twitch, etc.)
+3. Select format: MP3 (compressed), WAV (uncompressed), or FLAC (lossless)
+4. Audio downloads to `downloads/` folder with metadata
+
+**Perfect for:**
+- Building audio libraries for later processing
+- Getting high-quality audio files quickly
+- Podcast episode downloads
+- Music/interview extraction
 
 ### Example: Quick YouTube Video Transcription ⭐ RECOMMENDED
 
@@ -175,6 +206,82 @@ The AI Transcription Tool uses an intelligent **automatic provider selection** s
 
 - **🎯 For 99% of users:** Just use Quick URL Transcription (`python quick_url_transcribe.py`)
 - **⚙️ For specific quality needs:** Use Advanced Options to manually select models
+
+## 🧠 Enhanced Deep Extraction (NEW!)
+
+The system now includes a production-ready deep extraction pipeline that automatically adapts to different content types:
+
+### Automatic Content Detection
+The system automatically identifies and applies the appropriate analysis framework:
+
+- **🎯 Prompting Content** → Extracts prompt engineering patterns, guardrails, templates
+- **📺 YouTube Content** → Extracts growth frameworks, metrics, case studies
+- **📚 Educational Content** → Extracts key lessons, concepts, examples
+- **🎙️ Interviews/Podcasts** → Extracts insights, quotes, themes
+
+### Using Enhanced Extraction
+
+**Automatic mode (recommended):**
+```python
+# The system automatically detects content type
+python quick_url_transcribe.py "https://youtube.com/watch?v=prompting_tutorial"
+# → Automatically uses prompting_claude_v1 rubric
+```
+
+**Explicit rubric selection:**
+```python
+# Force a specific rubric
+python transcribe.py --rubric prompting_claude_v1
+```
+
+### Quality Features
+
+- **Fragment Validation**: Rejects broken/incomplete text fragments
+- **Sentence Boundary Checking**: Ensures extracted content is grammatically complete
+- **Concept Whitelisting**: Validates domain-specific terminology
+- **Schema Compliance**: Ensures output follows expected structure
+- **Round-trip Validation**: Verifies extracted templates are actually usable
+
+### Truthful Telemetry & Monitoring (NEW!)
+
+The system now provides **honest, verifiable metrics** instead of misleading coverage percentages:
+
+**❌ Previous (Fake Metrics):**
+```
+Coverage: 101.0% of key elements extracted  
+Found: 539 frameworks, 2 metrics
+```
+
+**✅ Now (Truthful Metrics):**
+```
+Content: 3 frameworks, 2 metrics, 1 case studies
+Key Concepts: CCN fit, 7/15/30
+JSON Valid: ✅, Schema Compliant: ✅
+Provider: whisper, Method: openai_gpt4
+```
+
+**Telemetry Data Structure:**
+```json
+{
+  "transcriber": "whisper|scribe",
+  "rubric": "prompting_claude_v1",
+  "items_extracted": 5,
+  "chapters": 3,
+  "advice": 2,
+  "json_valid": true,
+  "schema_compliant": true,
+  "timestamp_alignment": true,
+  "processing_time_ms": 1500,
+  "contract_violations": 0
+}
+```
+
+**Key Improvements:**
+- ✅ **Actual counts** instead of inflated "framework" numbers
+- ✅ **Boolean indicators** instead of fake percentages
+- ✅ **Verifiable data** that can be independently validated
+- ✅ **Honest error reporting** with specific validation issues
+- ✅ **Session tracking** for quality monitoring over time
 
 ## ⚙️ Configuration
 

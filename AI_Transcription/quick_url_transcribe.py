@@ -17,13 +17,16 @@ from audio_transcriber import AudioTranscriber
 from openai_analyzer import OpenAIAnalyzer
 from analyzer import TextAnalyzer
 from captions import segments_to_srt, segments_to_vtt, Segment as CaptionSegment
+from custom_analyzer import CustomAnalyzer
+from output_formatter import OutputFormatter
+from file_manager import FileManager
 
 def clear_screen():
     """Clear the terminal screen"""
     os.system('cls' if os.name == 'nt' else 'clear')
 
-def download_audio(url: str) -> str:
-    """Download audio from URL and return temp file path"""
+def download_audio(url: str) -> tuple:
+    """Download audio from URL and return temp file path with metadata"""
     print(f"📥 Downloading audio from: {url}")
     
     # Create temp file
@@ -49,19 +52,27 @@ def download_audio(url: str) -> str:
             info = ydl.extract_info(url, download=True)
             title = info.get('title', 'Unknown')
             duration = info.get('duration', 0)
+            description = info.get('description', '')
             
             # Find the output file
             for file in Path(temp_dir).glob(f"transcribe_audio_{timestamp}.*"):
                 print(f"✅ Audio downloaded: {title}")
                 if duration:
                     print(f"   Duration: {duration//60}:{duration%60:02d}")
-                return str(file)
+                
+                metadata = {
+                    'title': title,
+                    'duration': duration,
+                    'description': description,
+                    'url': url
+                }
+                return str(file), metadata
                 
         raise Exception("Audio file not found after download")
         
     except Exception as e:
         print(f"❌ Download failed: {e}")
-        return None
+        return None, None
 
 def transcribe_audio(audio_file: str):
     """Transcribe audio with best available method"""
@@ -184,36 +195,40 @@ def analyze_text(transcript: str):
         except Exception as e:
             print(f"Key points extraction failed: {e}")
 
-def save_results(result: dict, url: str):
-    """Save transcript and analysis with multiple caption formats"""
-    # Create output directory
-    output_dir = Path("transcripts")
-    output_dir.mkdir(exist_ok=True)
+def save_results(result: dict, metadata: dict, analysis_result: dict = None):
+    """Save formatted transcript and analysis in organized structure"""
+    formatter = OutputFormatter()
+    file_manager = FileManager()
     
-    # Generate filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    base_name = f"transcript_{timestamp}"
+    # Create organized session folder
+    video_dir = file_manager.create_session_folder(metadata)
     
-    # Save transcript
-    transcript_file = output_dir / f"{base_name}.txt"
+    # Save formatted transcript
+    transcript_file = video_dir / "transcript.txt"
+    formatted_transcript = formatter.format_transcript(result, metadata.get('url', ''))
     with open(transcript_file, 'w', encoding='utf-8') as f:
-        f.write(f"Source: {url}\n")
-        f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"Provider: {result.get('provider', 'unknown')}\n")
-        f.write("=" * 60 + "\n\n")
+        f.write(formatted_transcript)
+    print(f"💾 Saved transcript: {transcript_file.name}")
+    
+    # Save analysis if provided
+    if analysis_result and analysis_result.get('analysis'):
+        analysis_file = video_dir / "analysis.txt"
+        formatted_analysis = formatter.format_analysis(analysis_result)
+        with open(analysis_file, 'w', encoding='utf-8') as f:
+            f.write(formatted_analysis)
+        print(f"💾 Saved analysis: {analysis_file.name}")
         
-        if result.get("has_diarization") and result.get("segments"):
-            # With speakers
-            current_speaker = None
-            for segment in result["segments"]:
-                speaker = segment.get("speaker", "Unknown")
-                if speaker != current_speaker:
-                    f.write(f"\n{speaker}:\n")
-                    current_speaker = speaker
-                f.write(f"{segment['text'].strip()}\n")
-        else:
-            # Without speakers
-            f.write(result.get("text", ""))
+        # Also save analysis as JSON
+        analysis_json_file = video_dir / "analysis.json"
+        with open(analysis_json_file, 'w', encoding='utf-8') as f:
+            json.dump(analysis_result, f, indent=2, ensure_ascii=False)
+    
+    # Save markdown version
+    markdown_file = video_dir / "transcript.md"
+    markdown_content = formatter.create_markdown_output(result, analysis_result, metadata.get('url', ''))
+    with open(markdown_file, 'w', encoding='utf-8') as f:
+        f.write(markdown_content)
+    print(f"💾 Saved markdown: {markdown_file.name}")
     
     # Save captions if we have segments
     if result.get("segments"):
@@ -228,19 +243,19 @@ def save_results(result: dict, url: str):
             ))
         
         # Save SRT format
-        srt_file = output_dir / f"{base_name}.srt"
+        srt_file = video_dir / "subtitles.srt"
         with open(srt_file, 'w', encoding='utf-8') as f:
             f.write(segments_to_srt(caption_segments))
         print(f"💾 Saved SRT: {srt_file.name}")
         
         # Save VTT format
-        vtt_file = output_dir / f"{base_name}.vtt"
+        vtt_file = video_dir / "subtitles.vtt"
         with open(vtt_file, 'w', encoding='utf-8') as f:
             f.write(segments_to_vtt(caption_segments))
         print(f"💾 Saved VTT: {vtt_file.name}")
     
     # Save raw transcript JSON
-    transcript_json = output_dir / f"{base_name}.json"
+    transcript_json = video_dir / "transcript_raw.json"
     with open(transcript_json, 'w', encoding='utf-8') as f:
         # Remove non-serializable items
         clean_result = result.copy()
@@ -251,27 +266,40 @@ def save_results(result: dict, url: str):
         
         json.dump(clean_result, f, indent=2, ensure_ascii=False, default=str)
     
-    # Save segments in structured format
-    if result.get("segments"):
-        segments_json = output_dir / f"{base_name}_segments.json"
-        with open(segments_json, 'w', encoding='utf-8') as f:
-            segments_data = {
-                "metadata": {
-                    "source": url,
-                    "generated": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    "provider": result.get('provider', 'unknown'),
-                    "language": result.get('language', 'auto-detected'),
-                    "total_segments": len(result["segments"])
-                },
-                "segments": result["segments"]
-            }
-            json.dump(segments_data, f, indent=2, ensure_ascii=False)
-        print(f"💾 Saved segments: {segments_json.name}")
+    # Save metadata
+    metadata_file = video_dir / "metadata.json"
+    metadata_dict = {
+        "video_info": metadata,
+        "transcription": {
+            "provider": result.get('provider', 'unknown'),
+            "language": result.get('language', 'auto-detected'),
+            "has_diarization": result.get('has_diarization', False),
+            "generated": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        },
+        "analysis": {
+            "prompt": analysis_result.get('prompt', '') if analysis_result else None,
+            "provider": analysis_result.get('provider', '') if analysis_result else None
+        }
+    }
+    with open(metadata_file, 'w', encoding='utf-8') as f:
+        json.dump(metadata_dict, f, indent=2, ensure_ascii=False)
     
-    print(f"💾 Files saved:")
-    print(f"   📄 Transcript: {transcript_file.name}")
-    print(f"   📊 Raw data: {transcript_json.name}")
-    print(f"   📂 Location: {output_dir.absolute()}")
+    print(f"\n📂 All files saved to: {video_dir.absolute()}")
+    print(f"   📄 Formatted transcript: transcript.txt")
+    print(f"   📝 Markdown version: transcript.md")
+    if analysis_result:
+        print(f"   🧠 Analysis: analysis.txt")
+    print(f"   📊 Raw data: transcript_raw.json")
+    print(f"   ℹ️ Metadata: metadata.json")
+    
+    # Register session in index
+    file_manager.register_session(
+        video_dir,
+        metadata,
+        analysis_result
+    )
+    
+    return video_dir
 
 def format_srt_time(seconds):
     """Format seconds to SRT timestamp"""
@@ -282,7 +310,7 @@ def format_srt_time(seconds):
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
 def main():
-    """Main function - simple URL transcription"""
+    """Main function - simple URL transcription with custom analysis"""
     clear_screen()
     
     print("🎬 QUICK URL TRANSCRIPTION")
@@ -305,45 +333,107 @@ def main():
     
     print(f"\n🚀 Processing: {url}")
     
-    # Step 1: Download audio
-    audio_file = download_audio(url)
+    # Step 1: Download audio and get metadata
+    audio_file, metadata = download_audio(url)
     if not audio_file:
         return
     
+    # Step 2: Ask for custom analysis preference
+    print("\n" + "=" * 60)
+    print("📝 ANALYSIS OPTIONS")
+    print("=" * 60)
+    
+    # Create custom analyzer for prompt suggestions
+    custom_analyzer = CustomAnalyzer()
+    suggestions = custom_analyzer.suggest_prompts(
+        metadata.get('title', ''),
+        metadata.get('description', '')
+    )
+    
+    print("\nWhat would you like to learn from this video?")
+    print("\n1. Press Enter for standard analysis (summary, themes, sentiment)")
+    print("2. Type your custom question/request")
+    
+    if suggestions:
+        print("\n💡 Suggested prompts based on video content:")
+        for i, suggestion in enumerate(suggestions[:3], 1):
+            print(f"   {i}. {suggestion}")
+    
+    print("\nExamples:")
+    print("   • 'Extract all tips about YouTube growth'")
+    print("   • 'List the main arguments and supporting evidence'")
+    print("   • 'What are the action items mentioned?'")
+    
+    user_prompt = input("\n🎯 Your request (or press Enter for default): ").strip()
+    
     try:
-        # Step 2: Transcribe
+        # Step 3: Transcribe
         result = transcribe_audio(audio_file)
         if not result:
             return
         
-        # Step 3: Display transcript
+        # Step 4: Display formatted transcript
         print("\n📄 TRANSCRIPT:")
         print("=" * 60)
         
+        # Use formatter for display
+        formatter = OutputFormatter()
         if result.get("has_diarization") and result.get("segments"):
-            # With speakers
-            current_speaker = None
-            for segment in result["segments"]:
-                speaker = segment.get("speaker", "Unknown")
-                if speaker != current_speaker:
-                    print(f"\n{speaker}:")
-                    current_speaker = speaker
-                print(f"  {segment['text'].strip()}")
+            # With speakers - show formatted version
+            formatted_display = formatter._format_diarized_transcript(result["segments"])
+            # Limit display to first 2000 characters
+            if len(formatted_display) > 2000:
+                print(formatted_display[:2000])
+                print("\n... [Transcript continues - see saved file for full text] ...\n")
+            else:
+                print(formatted_display)
         else:
-            # Without speakers
-            print(result.get("text", ""))
+            # Without speakers - show formatted paragraphs
+            formatted_display = formatter._smart_paragraph_split(result.get("text", ""))
+            # Limit display to first 2000 characters
+            if len(formatted_display) > 2000:
+                print(formatted_display[:2000])
+                print("\n... [Transcript continues - see saved file for full text] ...\n")
+            else:
+                print(formatted_display)
         
         print("\n" + "=" * 60)
         
-        # Step 4: Generate analysis
+        # Step 5: Generate analysis (custom or standard)
         transcript_text = result.get("text", "")
-        if transcript_text:
-            analyze_text(transcript_text)
+        analysis_result = None
         
-        # Step 5: Save everything
+        if transcript_text:
+            if user_prompt:
+                # Custom analysis
+                print("\n🧠 GENERATING CUSTOM ANALYSIS...")
+                print("=" * 60)
+                analysis_result = custom_analyzer.analyze_custom(
+                    transcript_text,
+                    user_prompt,
+                    metadata.get('title', '')
+                )
+                
+                if analysis_result.get('success') and analysis_result.get('analysis'):
+                    print(f"\nYour request: {user_prompt}")
+                    print("\n" + "-" * 50 + "\n")
+                    print(analysis_result['analysis'])
+                else:
+                    print("Analysis generation failed. See saved files for transcript.")
+            else:
+                # Standard analysis (backward compatible)
+                analyze_text(transcript_text)
+                # Create a pseudo analysis_result for saving
+                analysis_result = {
+                    'prompt': 'Standard analysis (summary, themes, sentiment)',
+                    'analysis': 'Standard analysis was performed (see terminal output)',
+                    'provider': 'Standard'
+                }
+        
+        # Step 6: Save everything with proper formatting
         print("\n💾 SAVING RESULTS...")
         print("=" * 50)
-        save_results(result, url)
+        video_dir = save_results(result, metadata, analysis_result)
         
         print(f"\n🎉 Complete! Transcription and analysis finished.")
         
@@ -352,13 +442,12 @@ def main():
             import subprocess
             import platform
             
-            results_dir = Path("transcripts").absolute()
             if platform.system() == "Darwin":  # macOS
-                subprocess.run(["open", str(results_dir)])
+                subprocess.run(["open", str(video_dir)])
             elif platform.system() == "Windows":
-                subprocess.run(["explorer", str(results_dir)])
+                subprocess.run(["explorer", str(video_dir)])
             else:  # Linux
-                subprocess.run(["xdg-open", str(results_dir)])
+                subprocess.run(["xdg-open", str(video_dir)])
     
     finally:
         # Clean up temp file
