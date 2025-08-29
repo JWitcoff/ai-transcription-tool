@@ -1,0 +1,164 @@
+{
+  "schema_version": "prompting_claude_v1",
+  "canonical_checklist": {
+    "core_structure": {
+      "role_definition": {
+        "weight": 1.0,
+        "completeness": "role_clarity",
+        "description": "Clear role and task definition for the AI",
+        "keywords": ["role", "you are", "task", "job", "assistant", "system", "persona"],
+        "required": true
+      },
+      "tone_specification": {
+        "weight": 0.8,
+        "completeness": "tone_guidance",
+        "description": "Tone and style instructions",
+        "keywords": ["tone", "style", "factual", "confident", "concise", "professional"],
+        "required": true
+      },
+      "context_constants": {
+        "weight": 1.0,
+        "completeness": "invariant_data",
+        "description": "Static context, schemas, and invariant information",
+        "keywords": ["constants", "background", "schema", "invariant", "context", "form structure"],
+        "required": true
+      },
+      "delimiters_structure": {
+        "weight": 0.9,
+        "completeness": "organization_clarity",
+        "description": "XML tags, markdown, or other structural delimiters",
+        "keywords": ["XML", "tags", "markdown", "delimiters", "structure", "sections"],
+        "required": true
+      }
+    },
+    "processing_flow": {
+      "ordered_steps": {
+        "weight": 1.0,
+        "completeness": "step_sequence",
+        "description": "Clear ordered reasoning or processing steps",
+        "keywords": ["steps", "first", "then", "analyze", "sequence", "order", "process"],
+        "required": true
+      },
+      "examples_fewshot": {
+        "weight": 0.9,
+        "completeness": "example_quality",
+        "description": "Few-shot examples or demonstrations",
+        "keywords": ["example", "few-shot", "demonstration", "sample", "case", "instance"],
+        "required": true
+      },
+      "guardrails_safety": {
+        "weight": 1.0,
+        "completeness": "safety_measures",
+        "description": "Confidence thresholds and hallucination prevention",
+        "keywords": ["guardrails", "confidence", "evidence", "only if", "insufficient", "safety"],
+        "required": true
+      }
+    },
+    "output_contract": {
+      "output_schema": {
+        "weight": 1.0,
+        "completeness": "schema_validity",
+        "description": "JSON schema or structured output format",
+        "keywords": ["schema", "JSON", "format", "structure", "output", "contract"],
+        "required": true
+      },
+      "prefill_tokens": {
+        "weight": 0.9,
+        "completeness": "prefill_presence",
+        "description": "Prefill tokens to constrain output start",
+        "keywords": ["prefill", "begin with", "start with", "first tokens", "response format"],
+        "required": true
+      },
+      "runtime_parameters": {
+        "weight": 0.8,
+        "completeness": "param_specification",
+        "description": "Temperature, max_tokens, and other parameters",
+        "keywords": ["temperature", "max_tokens", "parameters", "settings", "config"],
+        "required": true
+      },
+      "caching_guidance": {
+        "weight": 0.6,
+        "completeness": "caching_notes",
+        "description": "Prompt caching recommendations",
+        "keywords": ["caching", "cache", "static", "invariant", "reuse"],
+        "required": false
+      }
+    }
+  },
+  "quality_indicators": {
+    "schema_compliance": {
+      "weight": 1.0,
+      "description": "Output follows JSON schema without extra prose"
+    },
+    "actionable_structure": {
+      "weight": 0.9,
+      "description": "Template can be used directly for prompting"
+    },
+    "completeness": {
+      "weight": 0.8,
+      "description": "All required fields are present and meaningful"
+    },
+    "evidence_citation": {
+      "weight": 0.7,
+      "description": "Examples cite specific evidence from transcript"
+    }
+  },
+  "scoring": {
+    "method": "required_field_completion",
+    "required_fields": [
+      "role_definition",
+      "tone_specification", 
+      "context_constants",
+      "delimiters_structure",
+      "ordered_steps",
+      "examples_fewshot",
+      "guardrails_safety",
+      "output_schema",
+      "prefill_tokens",
+      "runtime_parameters"
+    ],
+    "thresholds": {
+      "excellent": 0.9,
+      "good": 0.8,
+      "acceptable": 0.7,
+      "needs_improvement": 0.6
+    },
+    "hard_fail_conditions": [
+      "missing_required_field",
+      "invalid_json_schema",
+      "prose_leak_in_output",
+      "no_evidence_citation"
+    ]
+  },
+  "gap_indicators": {
+    "common_misses": [
+      "role_without_context",
+      "steps_without_order", 
+      "schema_without_prefill",
+      "examples_without_evidence",
+      "guardrails_without_thresholds"
+    ],
+    "critical_gaps": [
+      "no_output_contract",
+      "no_safety_guardrails",
+      "no_structured_reasoning",
+      "unusable_template"
+    ]
+  },
+  "antipatterns": {
+    "avoid_patterns": [
+      "vague_instructions",
+      "missing_examples",
+      "no_error_handling",
+      "prose_in_json_output",
+      "temperature_too_high",
+      "missing_stop_sequences"
+    ],
+    "red_flags": [
+      "hallucination_prone",
+      "inconsistent_format",
+      "no_confidence_checks",
+      "brittle_parsing"
+    ]
+  }
+}

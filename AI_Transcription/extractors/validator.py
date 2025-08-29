@@ -1,11 +1,32 @@
 """
-Schema Validator - Validates extraction outputs against rubric with completeness scoring
+Enhanced Schema Validator - Validates extraction outputs with fragment quality checks
+and concept whitelisting for improved accuracy
 """
 
 import json
 import os
+import re
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any, Tuple, Set
+from enum import Enum
+
+
+class FragmentQuality(Enum):
+    VALID = "valid"
+    TOO_SHORT = "too_short" 
+    MID_SENTENCE = "mid_sentence"
+    NO_VERB = "no_verb"
+    SPEAKER_TAGS = "speaker_tags"
+    UNKNOWN_CONCEPT = "unknown_concept"
+    TIMESTAMP_NOISE = "timestamp_noise"
+
+
+class FragmentValidation:
+    """Result of fragment validation"""
+    def __init__(self, quality: FragmentQuality, reason: str):
+        self.quality = quality
+        self.reason = reason
+
 
 class SchemaValidator:
     """Validates extraction outputs and calculates coverage scores"""

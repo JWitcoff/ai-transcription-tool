@@ -74,13 +74,62 @@ class CustomAnalyzer:
                 "analysis": None
             }
         
+        # Use enhanced extraction if available
+        if hasattr(self, 'use_enhanced') and self.use_enhanced and hasattr(self, 'enhanced_extractor') and self.enhanced_extractor:
+            return self._analyze_with_enhanced_extraction(transcript, user_prompt, video_title)
         # Use deep extraction pipeline if available
-        if self.use_deep_extraction and self.deep_extractor:
+        elif self.use_deep_extraction and self.deep_extractor:
             return self._analyze_with_deep_extraction(transcript, user_prompt, video_title)
         elif self.client:
             return self._analyze_with_openai(transcript, user_prompt, video_title)
         else:
             return self._analyze_with_local(transcript, user_prompt)
+    
+    def _analyze_with_enhanced_extraction(self, transcript: str, user_prompt: str, video_title: str) -> Dict[str, Any]:
+        """Use enhanced extraction pipeline with automatic rubric selection"""
+        try:
+            print("\n🚀 Using ENHANCED extraction pipeline...")
+            
+            # Prepare metadata
+            metadata = {
+                "source": video_title or "direct_input",
+                "provider": "unknown",
+                "language": "en"
+            }
+            
+            # Run enhanced extraction
+            result = self.enhanced_extractor.extract_all_lenses(
+                transcript=transcript,
+                user_prompt=user_prompt,
+                video_title=video_title,
+                metadata=metadata
+            )
+            
+            # Format based on schema type
+            if result.get("schema_version") == "prompting_claude_v1":
+                formatted_analysis = self._format_prompting_analysis(result)
+            else:
+                formatted_analysis = self._format_youtube_analysis(result)
+            
+            return {
+                "success": True,
+                "prompt": user_prompt,
+                "analysis": formatted_analysis,
+                "provider": "EnhancedExtractor",
+                "structured_data": result,
+                "schema_version": result.get("schema_version"),
+                "quality_metrics": result.get("_metadata", {}).get("quality", {})
+            }
+            
+        except Exception as e:
+            print(f"⚠️ Enhanced extraction failed: {e}")
+            # Fallback to standard extraction
+            if self.deep_extractor:
+                return self._analyze_with_deep_extraction(transcript, user_prompt, video_title)
+            elif self.client:
+                return self._analyze_with_openai(transcript, user_prompt, video_title)
+            else:
+                return self._analyze_with_local(transcript, user_prompt)
     
     def _analyze_with_deep_extraction(self, transcript: str, user_prompt: str, video_title: str) -> Dict[str, Any]:
         """Use deep extraction pipeline for comprehensive analysis"""
@@ -503,6 +552,112 @@ Please provide a comprehensive response with:
             ]
         
         return suggestions
+    
+    def _format_prompting_analysis(self, extraction: Dict) -> str:
+        """Format prompting extraction for display"""
+        structure = extraction.get("structure", {})
+        
+        sections = []
+        
+        # Title
+        sections.append("=" * 60)
+        sections.append("PROMPT ENGINEERING BEST PRACTICES")
+        sections.append("=" * 60)
+        
+        # Key lessons
+        sections.append("\n## 🎯 KEY PROMPTING LESSONS\n")
+        
+        if structure.get("role"):
+            sections.append(f"**Role Definition:** {structure['role']}")
+        
+        if structure.get("tone"):
+            sections.append(f"**Tone Guidance:** {structure['tone']}")
+        
+        if structure.get("ordered_steps"):
+            sections.append("\n**Ordered Reasoning Steps:**")
+            for i, step in enumerate(structure["ordered_steps"][:5], 1):
+                sections.append(f"  {i}. {step}")
+        
+        if structure.get("guardrails"):
+            sections.append("\n**Safety Guardrails:**")
+            for guardrail in structure["guardrails"][:3]:
+                sections.append(f"  • {guardrail}")
+        
+        # Template
+        if extraction.get("template"):
+            sections.append("\n## 📝 BATTLE-TESTED PROMPT TEMPLATE\n")
+            sections.append("```")
+            sections.append(extraction["template"][:1500])  # Truncate if too long
+            sections.append("```")
+        
+        # Checklist
+        if extraction.get("checklist"):
+            sections.append("\n## ✅ IMPLEMENTATION CHECKLIST\n")
+            for item in extraction["checklist"][:7]:
+                sections.append(f"  ☐ {item}")
+        
+        # Quality metrics
+        if "_metadata" in extraction:
+            quality = extraction["_metadata"].get("quality", {})
+            sections.append(f"\n## 📊 EXTRACTION QUALITY")
+            sections.append(f"  Fragment Quality: {quality.get('fragment_quality', 0):.1%}")
+            sections.append(f"  Schema Compliance: {quality.get('schema_compliance', 0):.1%}")
+            sections.append(f"  Round-trip Valid: {'✅' if quality.get('round_trip_valid') else '❌'}")
+        
+        return "\n".join(sections)
+    
+    def _format_youtube_analysis(self, extraction: Dict) -> str:
+        """Format YouTube extraction for display"""
+        sections = []
+        
+        # Title
+        sections.append("=" * 60)
+        sections.append("YOUTUBE GROWTH PLAYBOOK")
+        sections.append("=" * 60)
+        
+        # Frameworks
+        if extraction.get("frameworks"):
+            sections.append("\n## 🔧 FRAMEWORKS & STRATEGIES\n")
+            for fw in extraction["frameworks"][:5]:
+                name = fw.get("name", "Unknown")
+                definition = fw.get("definition", "")
+                if definition:
+                    sections.append(f"**{name}:** {definition}")
+                else:
+                    sections.append(f"**{name}**")
+        
+        # Metrics
+        if extraction.get("metrics"):
+            sections.append("\n## 📈 KEY METRICS & RESULTS\n")
+            for metric in extraction["metrics"][:5]:
+                value = metric.get("value", "")
+                context = metric.get("context", "")
+                sections.append(f"  • **{value}** - {context}")
+        
+        # Case studies
+        if extraction.get("case_studies"):
+            sections.append("\n## 💡 CASE STUDIES\n")
+            for case in extraction["case_studies"][:3]:
+                name = case.get("name", "Unknown")
+                pattern = case.get("pattern_or_framework", "")
+                effect = case.get("measured_effect", "")
+                sections.append(f"**{name}:**")
+                if pattern:
+                    sections.append(f"  Strategy: {pattern}")
+                if effect:
+                    sections.append(f"  Result: {effect}")
+        
+        # Quality check
+        if extraction.get("quality_check"):
+            qc = extraction["quality_check"]
+            sections.append(f"\n## ✅ QUALITY CHECK")
+            if qc.get("footer"):
+                footer = qc["footer"]
+                sections.append(f"  Coverage: {footer.get('coverage', 'N/A')}")
+                sections.append(f"  Gaps: {footer.get('gaps', 'None')}")
+                sections.append(f"  Action: {footer.get('actionability', 'Review insights')}")
+        
+        return "\n".join(sections)
     
     def get_template_prompts(self) -> Dict[str, str]:
         """
