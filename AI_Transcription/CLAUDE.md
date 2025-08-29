@@ -26,6 +26,66 @@ cd tests && python test_enhanced_extraction.py
 
 # Run specific test level
 cd tests && python -c "from test_elevenlabs import *; test_level_1_connectivity()"
+
+# Test truthful telemetry system
+cd tests && python -c "from extractors.truthful_telemetry import TruthfulTelemetryCollector; collector = TruthfulTelemetryCollector(); print('✅ Truthful telemetry test passed')"
+
+# Test contract validation
+cd tests && python -c "from extractors.contracts import validate_with_repair; print('✅ Contract system test passed')"
+
+# Test fragment guards
+cd tests && python -c "from extractors.guards import filter_valid_fragments; print('✅ Fragment guards test passed')"
+```
+
+### Debugging & Troubleshooting
+```bash
+# Check system status
+python -c "
+import sys
+print(f'Python version: {sys.version}')
+try:
+    import torch
+    print(f'PyTorch available: {torch.__version__}')
+except ImportError:
+    print('PyTorch not available')
+try:
+    from elevenlabs_scribe import ScribeClient
+    client = ScribeClient()
+    print(f'ElevenLabs Scribe: {"✅ Available" if client.client else "❌ Not configured"}')
+except Exception as e:
+    print(f'ElevenLabs Scribe: ❌ Error - {e}')
+"
+
+# Check truthful telemetry session
+python -c "from extractors.truthful_telemetry import get_global_collector; collector = get_global_collector(); report = collector.get_session_report(); print(f'Session: {report[\"session_stats\"][\"session_id\"]}, Extractions: {report[\"session_stats\"][\"total_extractions_attempted\"]}')"
+
+# View recent extraction logs
+ls -la truthful_telemetry/truthful_session_*.json | tail -5
+
+# Check contract validation errors
+python -c "
+from extractors.contracts import ChaptersAdvicePayload
+try:
+    test_payload = {'chapters': [{'title': 'Test', 'summary': 'A test chapter with sufficient length to meet requirements'}], 'advice': [{'category': 'acquisition', 'point': 'Test advice that is actionable and meets length requirements'}]}
+    validated = ChaptersAdvicePayload(**test_payload)
+    print('✅ Contract validation working')
+except Exception as e:
+    print(f'❌ Contract validation error: {e}')
+"
+
+# Test fragment quality validation
+python -c "
+from extractors.guards import comprehensive_fragment_check, GuardResult
+test_cases = [
+    'This is a complete sentence with proper content.',
+    \"'m part of the Applied\",
+    'Coverage: 101.0%',
+    'Found: 539 frameworks'
+]
+for test in test_cases:
+    result = comprehensive_fragment_check(test)
+    print(f'Fragment: \"{test[:30]}...\" → {result.value}')
+"
 ```
 
 ### Dependencies
@@ -54,7 +114,41 @@ python -c "from extractors.rubric_selector import RubricSelector; s = RubricSele
 
 # Test enhanced extraction directly
 python -c "from extractors.enhanced_deep_extractor import extract_with_best_practices; help(extract_with_best_practices)"
+
+# Test contract validation system
+python -c "from extractors.contracts import ChaptersAdvicePayload; print('Contract system loaded')"
+
+# Test fragment guards
+python -c "from extractors.guards import comprehensive_fragment_check; print(comprehensive_fragment_check('This is a test fragment.'))"
+
+# Test timestamp alignment
+python -c "from extractors.align import TimestampAligner; aligner = TimestampAligner(); print('Alignment system ready')"
+
+# Test truthful telemetry
+python -c "from extractors.truthful_telemetry import get_global_collector; collector = get_global_collector(); print('Truthful telemetry active')"
 ```
+
+### Development Workflow & Documentation Tools
+```bash
+# Smart commit with documentation reminders
+./commit-with-docs.sh "Your commit message"
+
+# Regular git workflow (will show doc reminders via pre-commit hook)
+git add your_files.py
+git commit -m "Your commit message"
+
+# Push current branch
+git push origin $(git branch --show-current)
+
+# Create pull request (if gh CLI installed)
+gh pr create --title "Your PR title" --body "Description"
+```
+
+**Documentation Update Reminders:**
+- Pre-commit hook automatically detects significant changes
+- Prompts to update CLAUDE.md and README.md when needed
+- Smart commit script offers to auto-stage documentation files
+- Commit template includes documentation checklist
 
 ## Architecture Overview
 
@@ -322,4 +416,90 @@ metrics = collector.record_extraction_attempt(
     processing_metadata={"method": "openai_gpt4", "duration_ms": 1500}
 )
 print(f"Items extracted: {metrics.total_items_extracted}")
+```
+
+### Quality Monitoring & Session Management
+
+**Monitor extraction quality in real-time:**
+```bash
+# View current session status
+python -c "
+from extractors.truthful_telemetry import get_global_collector
+collector = get_global_collector()
+stats = collector.session_stats
+print(f'📊 Session {stats.session_id}')
+print(f'   Extractions: {stats.total_extractions_successful}/{stats.total_extractions_attempted}')
+print(f'   Success rate: {stats.success_rate:.1%}')
+print(f'   Contract compliance: {stats.contract_compliance_rate:.1%}')
+print(f'   Providers: Scribe({stats.elevenlabs_scribe_used}) Whisper({stats.whisper_used})')
+"
+
+# Finalize session and generate report
+python -c "from extractors.truthful_telemetry import finalize_session; finalize_session()"
+
+# View session reports
+ls -la truthful_telemetry/truthful_session_*.json
+```
+
+**Quality Gates & Validation:**
+```bash
+# Test contract enforcement
+python -c "
+from extractors.contracts import validate_with_repair
+# This should pass
+good_payload = {
+    'chapters': [{'title': 'Valid Chapter', 'summary': 'This is a proper chapter summary with sufficient detail and length.'}],
+    'advice': [{'category': 'monetization', 'point': 'This is actionable advice that meets the length requirements.'}]
+}
+try:
+    result = validate_with_repair(good_payload)
+    print('✅ Contract validation: PASS')
+except Exception as e:
+    print(f'❌ Contract validation: FAIL - {e}')
+"
+
+# Test rubric leakage detection
+python -c "
+from extractors.guards import has_rubric_leakage
+test_cases = [
+    'This is clean content without artifacts.',
+    '## 🔧 CORE FRAMEWORKS',
+    'Coverage: 101.0% of key elements',
+    'Found: 539 frameworks, 2 metrics'
+]
+for test in test_cases:
+    leaked = has_rubric_leakage(test)
+    status = '❌ LEAKED' if leaked else '✅ CLEAN'
+    print(f'{status}: \"{test[:40]}...\"')
+"
+```
+
+**Performance & Error Tracking:**
+```bash
+# Check processing performance
+python -c "
+import time
+from extractors.truthful_telemetry import TruthfulTelemetryCollector
+collector = TruthfulTelemetryCollector()
+start_time = time.time()
+# Simulate extraction metrics
+metrics = collector.record_extraction_attempt(
+    extraction_result={'chapters': [{'title': 'Test', 'summary': 'Test summary with adequate length'}]},
+    transcript_metadata={'provider': 'whisper', 'text': 'sample transcript'},
+    processing_metadata={'method': 'test', 'duration_ms': (time.time() - start_time) * 1000}
+)
+print(f'✅ Processing time: {metrics.processing_time_ms:.0f}ms')
+"
+
+# Monitor extraction errors
+tail -f video_transcription.log | grep -E "(ERROR|WARNING|Failed)"
+
+# Check system health
+python -c "
+import psutil
+import os
+print(f'CPU: {psutil.cpu_percent()}%')
+print(f'Memory: {psutil.virtual_memory().percent}%')
+print(f'Disk space: {psutil.disk_usage(os.getcwd()).percent}%')
+"
 ```
