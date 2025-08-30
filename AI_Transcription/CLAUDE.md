@@ -22,6 +22,10 @@ python quick_url_transcribe.py
 
 # Web interface
 streamlit run app.py
+
+# MCP Server for AI Agents (NEW!)
+python mcp_transcription_server.py
+# Note: Usually managed automatically by Claude Desktop
 ```
 
 ### Testing
@@ -43,6 +47,15 @@ cd tests && python -c "from extractors.contracts import validate_with_repair; pr
 
 # Test fragment guards
 cd tests && python -c "from extractors.guards import filter_valid_fragments; print('✅ Fragment guards test passed')"
+
+# Test MCP server functionality (NEW!)
+python test_mcp_functions.py
+
+# Test MCP package installation
+python -c "from mcp.server.fastmcp import FastMCP; print('✅ MCP package available')"
+
+# Test MCP server startup (manual testing)
+python mcp_transcription_server.py --help
 ```
 
 ### Debugging & Troubleshooting
@@ -185,11 +198,22 @@ This is a multi-provider AI transcription system with intelligent fallback archi
 
 ### Entry Points Architecture
 
-1. **`transcribe.py`** - Interactive CLI menu with 6 transcription modes
+1. **`transcribe.py`** - Interactive CLI menu with 9 transcription modes
 2. **`quick_url_transcribe.py`** - Streamlined single-URL processing
 3. **`app.py`** - Streamlit web interface with real-time progress
 4. **`live_cli.py`** - Real-time microphone transcription
 5. **`simple_transcribe.py`** - Advanced CLI with quality tiers
+6. **`mcp_transcription_server.py`** - MCP server for AI agents (NEW!)
+
+### MCP Server Architecture (NEW!)
+
+**Model Context Protocol Integration:**
+- **FastMCP Server** - Exposes transcription tools to AI agents
+- **Audio Download Tool** - `download_audio_only()` matches CLI Option 1
+- **Transcription Tools** - Full transcription with custom analysis prompts
+- **Resource Endpoints** - Access past sessions and files
+- **Session Management** - Integrates with existing `downloads/` and `transcripts/` folders
+- **Automatic Provider Selection** - Uses ElevenLabs → Whisper fallback like other entry points
 
 ### Analysis Engine
 

@@ -1,0 +1,115 @@
+{
+  "name": "youtube-transcription",
+  "version": "1.0.0",
+  "description": "YouTube audio download and high-accuracy transcription with speaker diarization",
+  "author": "AI Transcription Tool",
+  "license": "MIT",
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": false
+  },
+  "tools": [
+    {
+      "name": "download_audio_only",
+      "description": "Download audio from URL without transcription",
+      "parameters": {
+        "url": {
+          "type": "string",
+          "description": "Video/audio URL to download from",
+          "required": true
+        },
+        "format": {
+          "type": "string",
+          "enum": ["mp3", "wav", "flac"],
+          "default": "mp3",
+          "description": "Audio format for download"
+        }
+      }
+    },
+    {
+      "name": "transcribe_youtube",
+      "description": "Transcribe YouTube video with high accuracy and speaker diarization",
+      "parameters": {
+        "url": {
+          "type": "string",
+          "description": "YouTube video URL to transcribe",
+          "required": true
+        },
+        "include_analysis": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include AI analysis (summary, themes, sentiment)"
+        }
+      }
+    },
+    {
+      "name": "transcribe_with_custom_prompt",
+      "description": "Transcribe video and analyze with custom questions",
+      "parameters": {
+        "url": {
+          "type": "string",
+          "description": "Video URL to transcribe",
+          "required": true
+        },
+        "analysis_prompt": {
+          "type": "string",
+          "description": "Custom analysis prompt",
+          "required": true
+        }
+      }
+    },
+    {
+      "name": "get_video_segments",
+      "description": "Get timestamped segments in SRT or VTT format",
+      "parameters": {
+        "url": {
+          "type": "string",
+          "description": "Video URL to process",
+          "required": true
+        },
+        "format": {
+          "type": "string",
+          "enum": ["srt", "vtt"],
+          "default": "srt",
+          "description": "Output format for segments"
+        }
+      }
+    }
+  ],
+  "resources": [
+    {
+      "pattern": "transcript://*",
+      "description": "Access past transcriptions by session ID"
+    },
+    {
+      "pattern": "audio://*",
+      "description": "Access downloaded audio files by session ID"
+    },
+    {
+      "pattern": "sessions://list",
+      "description": "List all transcription and audio download sessions"
+    }
+  ],
+  "requirements": {
+    "python": ">=3.8",
+    "packages": [
+      "mcp[cli]",
+      "yt-dlp",
+      "openai-whisper",
+      "ffmpeg-python",
+      "requests",
+      "python-dotenv"
+    ],
+    "system": {
+      "ffmpeg": "Required for audio processing"
+    }
+  },
+  "environment": {
+    "optional": {
+      "ELEVENLABS_SCRIBE_KEY": "API key for ElevenLabs Scribe (premium transcription)",
+      "OPENAI_API_KEY": "API key for OpenAI analysis features",
+      "USE_SCRIBE": "Enable/disable ElevenLabs Scribe (true/false)"
+    }
+  }
+}

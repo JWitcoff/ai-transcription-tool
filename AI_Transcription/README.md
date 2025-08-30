@@ -4,6 +4,7 @@ A powerful, all-in-one audio/video transcription tool powered by ElevenLabs Scri
 
 ## ✨ Features
 
+- 🤖 **MCP Server**: Direct agent access via Model Context Protocol (NEW!)
 - 🎵 **Audio Only Mode**: Download audio from any URL without transcription (NEW!)
 - 🎙️ **Multiple Input Sources**: YouTube videos, local files, live microphone
 - 🎯 **Speaker Diarization**: Automatically identify different speakers
@@ -389,6 +390,46 @@ sentiment = analyzer.analyze_sentiment(result["text"])
 - NVIDIA GPU with 4GB+ VRAM
 - SSD storage
 - Fast internet connection
+
+## 🤖 MCP Server for AI Agents (NEW!)
+
+Give AI agents direct access to YouTube transcription with the included MCP (Model Context Protocol) server.
+
+### Quick Setup for Claude Desktop
+
+1. **Install MCP package:**
+   ```bash
+   pip install "mcp[cli]"
+   ```
+
+2. **Configure Claude Desktop** - Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+   ```json
+   {
+     "mcpServers": {
+       "youtube-transcription": {
+         "command": "python",
+         "args": ["/path/to/AI_Transcription/mcp_transcription_server.py"],
+         "env": {
+           "ELEVENLABS_SCRIBE_KEY": "your_api_key",
+           "OPENAI_API_KEY": "your_openai_key"
+         }
+       }
+     }
+   }
+   ```
+
+3. **Restart Claude Desktop** and start chatting:
+   - "Download the audio from this YouTube video: https://..."
+   - "Transcribe this video and tell me the key points: https://..."
+
+### MCP Tools Available
+
+- **`download_audio_only`** - Extract audio without transcription (MP3/WAV/FLAC)
+- **`transcribe_youtube`** - Full transcription with speaker diarization
+- **`transcribe_with_custom_prompt`** - Custom analysis questions
+- **`get_video_segments`** - Export as SRT/VTT subtitles
+
+See [README_MCP.md](README_MCP.md) for complete MCP documentation.
 
 ## License
 
