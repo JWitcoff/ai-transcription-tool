@@ -42,15 +42,27 @@ A powerful, all-in-one audio/video transcription tool powered by ElevenLabs Scri
    cd ai-transcription-tool/AI_Transcription
    ```
 
-2. **Install dependencies**
+2. **Create and activate virtual environment**
+   ```bash
+   # Create virtual environment
+   python3 -m venv venv
+   
+   # Activate virtual environment
+   source venv/bin/activate    # macOS/Linux
+   # OR on Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Run the tool**
+4. **Run the tool**
    ```bash
    python transcribe.py
    ```
+
+> **Note:** Always activate the virtual environment with `source venv/bin/activate` before running the tool. When you're done, you can deactivate it with `deactivate`.
 
 That's it! The interactive menu will guide you through all options.
 

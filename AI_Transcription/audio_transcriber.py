@@ -1,7 +1,10 @@
 import whisper
 import os
 import tempfile
-import pyaudio
+try:
+    import pyaudio
+except ImportError:
+    pyaudio = None  # pyaudio is optional - only needed for live recording
 import wave
 import json
 from pathlib import Path
@@ -272,6 +275,9 @@ class AudioTranscriber:
         Returns:
             Dictionary containing transcription results
         """
+        if pyaudio is None:
+            raise ImportError("pyaudio is required for live recording. Install with: pip install pyaudio")
+        
         chunk = 1024
         format = pyaudio.paInt16
         channels = 1
