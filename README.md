@@ -1,11 +1,12 @@
 # 🎬 AI Transcription Tool
 
-A powerful, all-in-one audio/video transcription tool powered by ElevenLabs Scribe and OpenAI Whisper with advanced speaker diarization (up to 32 speakers), live transcription, and multiple export formats.
+A powerful, all-in-one audio/video transcription tool powered by ElevenLabs Scribe and OpenAI Whisper with advanced speaker diarization (up to 32 speakers), real-time progress tracking, live transcription, and multiple export formats.
 
 ## ✨ Features
 
 - 🤖 **MCP Server**: Direct agent access via Model Context Protocol (NEW!)
 - 🎵 **Audio Only Mode**: Download audio from any URL without transcription (NEW!)
+- ⏱️ **Clean Terminal UI**: Minimal 3-stage progress with dynamic ETA updates (NEW!)
 - 🎙️ **Multiple Input Sources**: YouTube videos, local files, live microphone
 - 🎯 **Speaker Diarization**: Automatically identify different speakers
 - ⚡ **Live Transcription**: Real-time speech-to-text from microphone
@@ -13,6 +14,9 @@ A powerful, all-in-one audio/video transcription tool powered by ElevenLabs Scri
 - 🤖 **AI Analysis**: Summarization, theme extraction, sentiment analysis
 - 🧠 **Custom Analysis Prompts**: Ask specific questions about your content (NEW!)
 - 📋 **Professional Templates**: Pre-built analysis for interviews, tutorials, meetings (NEW!)
+- 🛡️ **Fact-Grounded Analysis**: Prevents AI hallucinations with extractive summarization (NEW!)
+- 📊 **Named Entity Recognition**: Extracts dates, metrics, companies, and quotes with validation (NEW!)
+- 🎯 **Blacklist Filtering**: Filters unrealistic terms to prevent false information (NEW!)
 - 📂 **Smart File Organization**: Organized session folders with metadata (NEW!)
 - 📥 **Multiple Export Formats**: TXT, SRT subtitles, VTT captions, JSON, Markdown
 - 🌐 **Web Interface**: Beautiful Streamlit app with download buttons
@@ -115,14 +119,29 @@ python transcribe.py
 python quick_url_transcribe.py
 ```
 1. Enter your YouTube URL
-2. Get complete transcription + speaker identification + AI analysis
-3. Find results in the `transcripts/` folder
+2. Watch the **clean progress display** with real-time ETA:
+```
+🎬 QUICK TRANSCRIPTION
+Input: https://youtube.com/watch?v=example123
+Using transcription model: ElevenLabs Scribe ✅
+
+[🔊] Transcribing audio... (ETA: 2m 30s)
+[🧠] Analyzing transcript... (ETA: 45s)
+[✅] Complete – results saved
+
+📝 Summary:
+Duration: 5m 32s | Speakers: 2 | Confidence: 94.3%
+Saved 6 output files to: /Users/user/transcripts/example
+```
+3. Get complete transcription + speaker identification + AI analysis
+4. Find results in the `transcripts/` folder
 
 **Or via the main menu:**
-1. Run `python transcribe.py`  
+1. Run `python transcribe.py`
 2. Choose option 2 (Quick URL Transcription)
-3. Enter your YouTube URL  
+3. Enter your YouTube URL
 4. Choose custom analysis prompt or use defaults
+5. Watch the clean UI guide you through each step
 
 ### Example: Live Transcription
 
@@ -195,6 +214,13 @@ The AI Transcription Tool uses an intelligent **automatic provider selection** s
 
 **Result:** You get the best available transcription automatically with zero configuration needed.
 
+### ⏱️ Progress Tracking (NEW!)
+**Real-time visibility into processing:**
+- **Dynamic ETA calculations** that improve accuracy as processing continues
+- **Step-by-step progress**: Download → Setup → Transcription → Analysis → Save
+- **Completion times** for each phase to help you understand performance
+- **Audio duration awareness**: Automatically adjusts estimates based on video length
+
 ---
 
 ### ⚙️ Advanced Manual Options (For Power Users)
@@ -237,6 +263,84 @@ Pre-built analysis templates for common use cases:
 - **📊 Business Content**: Frameworks, metrics, case studies
 
 Access via menu option 7 (Template Analysis).
+
+## 🛡️ Fact-Grounded Analysis System (NEW!)
+
+**Prevents AI hallucinations and ensures factual accuracy in transcript analysis.**
+
+### 🎯 Problem Solved
+
+Traditional AI analysis can "hallucinate" - creating false information that sounds realistic:
+- ❌ **Before**: AI might claim "Apple announced iPhone 17" when transcript actually mentioned "CommaCon 2025"
+- ❌ **Before**: Generic themes like "Theme 1: Technology"
+- ❌ **Before**: Speculative summaries that invent details not in the transcript
+
+- ✅ **After**: Only real facts extracted and validated against source
+- ✅ **After**: Specific themes like "Business Strategy: Revenue (3 data points)"
+- ✅ **After**: Extractive summaries using only actual transcript sentences
+
+### 🔍 How It Works
+
+**1. Named Entity Recognition**
+- **Dates & Events**: WWDC 2024, June 2024, CommaCon 2025
+- **Metrics & Numbers**: $383 billion, 15% growth, 32 speakers
+- **Companies**: Apple, Google, Microsoft (with context validation)
+- **Quotes**: Memorable statements with speaker attribution
+
+**2. Blacklist Filtering**
+Automatically filters unrealistic terms that AI commonly hallucinates:
+```
+iPhone 17, iPhone 18, Tesla Phone, Vision Pro 2,
+ChatGPT 10, Windows 20, etc.
+```
+
+**3. Source Validation**
+- Every fact must be findable in the original transcript
+- Confidence scoring (0-1) for each extracted element
+- Evidence counting for theme generation
+
+**4. Extractive Summarization**
+- Uses actual sentences from transcript instead of generating new ones
+- Prevents AI from inventing information not present in source
+- Maintains factual accuracy while providing concise overviews
+
+### 📊 Example: Before vs After
+
+**Input Transcript Excerpt:**
+> "At CommaCon 2025, we announced new factory efficiency metrics showing 23% improvement. Apple's revenue reached $383 billion. Google reported 15% cloud growth."
+
+**❌ Old System Output:**
+```
+Summary: Apple unveiled the revolutionary iPhone 17 with advanced features...
+Theme 1: Technology
+Theme 2: Innovation
+```
+
+**✅ New Fact-Grounded Output:**
+```
+EXTRACTED FACTS:
+• Events: CommaCon 2025
+• Metrics: 23% improvement, $383 billion, 15%
+• Companies: Apple, Google
+
+EXTRACTIVE SUMMARY:
+At CommaCon 2025, we announced new factory efficiency metrics showing 23% improvement. Apple's revenue reached $383 billion.
+
+EVIDENCE-BASED THEMES:
+1. Business Metrics: Financial (2 data points)
+2. Key Events & Announcements (1 event)
+3. Companies & Organizations (2 entities)
+```
+
+### 🎯 Confidence & Validation
+
+Each analysis includes:
+- **Confidence Score**: Overall reliability (0-100%)
+- **Evidence Count**: Number of factual references supporting each theme
+- **Source Attribution**: Every claim traceable to transcript content
+- **Blacklist Status**: Confirmation that joke terms were filtered out
+
+This ensures users receive accurate, evidence-based insights instead of AI speculation.
 
 ## ⚙️ Configuration
 
@@ -360,6 +464,28 @@ sentiment = analyzer.analyze_sentiment(result["text"])
 
 ## Performance Tips
 
+**Processing Time Estimates (NEW!)** ⏱️
+The tool now shows real-time progress with dynamic ETA calculations:
+
+**For a 36-minute video:**
+- **ElevenLabs Scribe (Premium)**: 3-7 minutes total
+  - Audio Download: 30-60 seconds
+  - Transcription: 2-5 minutes (cloud processing)
+  - Analysis: 30-60 seconds
+- **Local Whisper (Free)**: 18-30 minutes (CPU) / 6-13 minutes (GPU)
+  - Audio Download: 30-60 seconds
+  - Transcription: 15-25 minutes (CPU) / 3-8 minutes (GPU)
+  - Analysis: 2-4 minutes
+
+**Clean UI Features:**
+- 🎯 **Minimal 3-Stage Progress**: [🔊] Transcribing → [🧠] Analyzing → [✅] Complete
+- ⏱️ **Dynamic ETA Updates**: Real-time countdown (2m 30s → 1m 45s → 30s)
+- 🤖 **Model Selection Display**: ElevenLabs Scribe ✅ or Whisper ⚠️ fallback indication
+- 🔇 **Silent Processing**: Suppressed verbose model loading and upload logs
+- 📊 **Professional Summary**: Duration, speakers, confidence stats in single line
+- ✨ **Minimal Output**: Reduced from 50+ verbose lines to ~10 clean lines
+
+**Optimization Tips:**
 1. **Model Selection**: Use smaller models for faster processing
 2. **GPU Usage**: Enable GPU acceleration for large models
 3. **Duration Limits**: Longer audio takes more time and memory

@@ -6,7 +6,7 @@ A powerful, all-in-one audio/video transcription tool powered by ElevenLabs Scri
 
 - 🤖 **MCP Server**: Direct agent access via Model Context Protocol (NEW!)
 - 🎵 **Audio Only Mode**: Download audio from any URL without transcription (NEW!)
-- ⏱️ **Dynamic Progress Bar**: Real-time progress tracking with ETA calculations (NEW!)
+- ⏱️ **Clean Terminal UI**: Minimal 3-stage progress with dynamic ETA updates (NEW!)
 - 🎙️ **Multiple Input Sources**: YouTube videos, local files, live microphone
 - 🎯 **Speaker Diarization**: Automatically identify different speakers
 - ⚡ **Live Transcription**: Real-time speech-to-text from microphone
@@ -119,12 +119,19 @@ python transcribe.py
 python quick_url_transcribe.py
 ```
 1. Enter your YouTube URL
-2. Watch the **dynamic progress bar** with real-time ETA:
+2. Watch the **clean progress display** with real-time ETA:
 ```
-⠹ 🎤 Transcribing with ElevenLabs Scribe │█░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│ 5.0% │ ETA: 27s
-✅ 🎤 Transcribing with ElevenLabs Scribe │ Completed in 19.6s
-⏭️  👥 Identifying speakers │ Included In ElevenLabs Scribe
-🎉 All steps completed in 32s
+🎬 QUICK TRANSCRIPTION
+Input: https://youtube.com/watch?v=example123
+Using transcription model: ElevenLabs Scribe ✅
+
+[🔊] Transcribing audio... (ETA: 2m 30s)
+[🧠] Analyzing transcript... (ETA: 45s)
+[✅] Complete – results saved
+
+📝 Summary:
+Duration: 5m 32s | Speakers: 2 | Confidence: 94.3%
+Saved 6 output files to: /Users/user/transcripts/example
 ```
 3. Get complete transcription + speaker identification + AI analysis
 4. Find results in the `transcripts/` folder
@@ -134,7 +141,7 @@ python quick_url_transcribe.py
 2. Choose option 2 (Quick URL Transcription)
 3. Enter your YouTube URL
 4. Choose custom analysis prompt or use defaults
-5. Watch the progress bar guide you through each step
+5. Watch the clean UI guide you through each step
 
 ### Example: Live Transcription
 
@@ -470,11 +477,13 @@ The tool now shows real-time progress with dynamic ETA calculations:
   - Transcription: 15-25 minutes (CPU) / 3-8 minutes (GPU)
   - Analysis: 2-4 minutes
 
-**Progress Bar Features:**
-- 📊 Real-time progress tracking with animated spinner
-- ⏱️ Dynamic ETA updates that improve accuracy as processing continues
-- 📈 Step-by-step visibility (download → setup → transcription → analysis → save)
-- ✅ Completion times for each phase
+**Clean UI Features:**
+- 🎯 **Minimal 3-Stage Progress**: [🔊] Transcribing → [🧠] Analyzing → [✅] Complete
+- ⏱️ **Dynamic ETA Updates**: Real-time countdown (2m 30s → 1m 45s → 30s)
+- 🤖 **Model Selection Display**: ElevenLabs Scribe ✅ or Whisper ⚠️ fallback indication
+- 🔇 **Silent Processing**: Suppressed verbose model loading and upload logs
+- 📊 **Professional Summary**: Duration, speakers, confidence stats in single line
+- ✨ **Minimal Output**: Reduced from 50+ verbose lines to ~10 clean lines
 
 **Optimization Tips:**
 1. **Model Selection**: Use smaller models for faster processing
