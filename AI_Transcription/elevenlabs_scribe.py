@@ -211,7 +211,7 @@ class ScribeClient:
                                      use_multi_channel)
         payload["cloud_storage_url"] = audio_url
         
-        print(f"🚀 Sending to ElevenLabs Scribe (cloud URL)...")
+        # Sending to ElevenLabs Scribe (cloud URL)
         print(f"   • Diarization: {'ON' if diarize else 'OFF'}")
         if use_multi_channel:
             print(f"   • Multi-channel: ON (speaker by channel)")
@@ -286,7 +286,7 @@ class ScribeClient:
         if "diarization_threshold" in payload:
             data_payload["diarization_threshold"] = str(payload["diarization_threshold"])
         
-        print(f"🚀 Uploading to ElevenLabs Scribe (file upload)...")
+        # Uploading to ElevenLabs Scribe (file upload)
         print(f"   • File: {os.path.basename(path)}")
         print(f"   • Size: {os.path.getsize(path)/1e6:.1f}MB")
         
@@ -534,11 +534,11 @@ def test_client():
     """Quick test of the client"""
     try:
         client = ScribeClient()
-        print("✅ ElevenLabs Scribe client initialized")
+        # ElevenLabs Scribe client initialized
         print(f"   • API key: {client.api_key[:10]}...")
         return True
     except Exception as e:
-        print(f"❌ ElevenLabs Scribe test failed: {e}")
+        # ElevenLabs Scribe test failed silently
         return False
 
 if __name__ == "__main__":

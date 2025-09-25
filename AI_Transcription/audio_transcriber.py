@@ -15,14 +15,14 @@ try:
     DIARIZATION_AVAILABLE = True
 except ImportError:
     DIARIZATION_AVAILABLE = False
-    print("Warning: pyannote.audio not available. Diarization features disabled.")
+    pass  # pyannote not available
 
 try:
     from elevenlabs_scribe import ScribeClient, parse_words_from_response, group_words_into_segments
     ELEVENLABS_AVAILABLE = True
 except ImportError:
     ELEVENLABS_AVAILABLE = False
-    print("Warning: elevenlabs_scribe not available. Scribe features disabled.")
+    pass  # elevenlabs_scribe not available
 
 class AudioTranscriber:
     def __init__(self, model_size: str = "base", device: Optional[str] = None, enable_diarization: bool = True, diarization_provider: str = "auto"):
@@ -49,8 +49,7 @@ class AudioTranscriber:
         if enable_diarization and not self.enable_diarization:
             print("⚠️  Speaker diarization: DISABLED (no providers available)")
             if not DIARIZATION_AVAILABLE and not ELEVENLABS_AVAILABLE:
-                print("   Install pyannote: pip install pyannote.audio>=3.1.0")
-                print("   OR configure ElevenLabs API key in .env file")
+                pass  # Installation suggestions suppressed
         elif not enable_diarization:
             print("ℹ️  Speaker diarization: DISABLED (not requested)")
         
@@ -60,9 +59,8 @@ class AudioTranscriber:
     def _load_model(self):
         """Load the Whisper model."""
         try:
-            print(f"Loading Whisper {self.model_size} model...")
+            # Load model silently
             self.model = whisper.load_model(self.model_size, device=self.device)
-            print("Whisper model loaded successfully!")
         except Exception as e:
             raise RuntimeError(f"Failed to load Whisper model: {e}")
     
@@ -94,25 +92,24 @@ class AudioTranscriber:
     def _load_elevenlabs_scribe(self):
         """Load ElevenLabs Scribe for diarization."""
         try:
-            print("🎯 Loading ElevenLabs Scribe...")
+            # Load ElevenLabs Scribe silently
             self.elevenlabs_scribe = ScribeClient()
-            print("✅ Speaker diarization: ENABLED (ElevenLabs Scribe)")
             print("   • Up to 32 speakers supported")
             print("   • 96.7% accuracy + audio event detection")
         except Exception as e:
-            print(f"Warning: Failed to load ElevenLabs Scribe: {e}")
+            # Silently handle Scribe loading failure
+            pass
             self.enable_diarization = False
             self.diarization_provider = None
     
     def _load_pyannote_pipeline(self):
         """Load pyannote.audio pipeline for diarization."""
         try:
-            print("🎯 Loading pyannote speaker diarization...")
+            # Load pyannote silently
             self.diarization_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1")
-            print("✅ Speaker diarization: ENABLED (pyannote.audio)")
-            print("   Model: pyannote/speaker-diarization-3.1")
         except Exception as e:
-            print(f"Warning: Failed to load diarization model: {e}")
+            # Silently handle diarization loading failure
+            pass
             self.enable_diarization = False
         
     def transcribe_from_file(self, audio_file_path: str, include_timestamps: bool = False) -> Dict:
@@ -144,7 +141,7 @@ class AudioTranscriber:
     
     def _transcribe_with_elevenlabs(self, audio_file_path: str) -> Dict:
         """Transcribe using ElevenLabs Scribe (includes diarization)."""
-        print("🚀 Using ElevenLabs Scribe for transcription + diarization")
+        # Using ElevenLabs Scribe
         
         try:
             # Use file upload for local files
@@ -185,8 +182,8 @@ class AudioTranscriber:
             }
             
         except Exception as e:
-            print(f"❌ ElevenLabs Scribe failed: {e}")
-            print("   Falling back to Whisper...")
+            # Scribe failed, fall back to Whisper silently
+            pass
             # Fall back to Whisper
             return self._transcribe_with_whisper(audio_file_path, include_timestamps=True)
     

@@ -56,6 +56,9 @@ python -c "from mcp.server.fastmcp import FastMCP; print('✅ MCP package availa
 
 # Test MCP server startup (manual testing)
 python mcp_transcription_server.py --help
+
+# Test clean UI implementation (NEW!)
+python test_clean_ui.py
 ```
 
 ### Debugging & Troubleshooting
@@ -221,6 +224,22 @@ This is a multi-provider AI transcription system with intelligent fallback archi
 - **Enhanced Deep Extraction** (`extractors/enhanced_deep_extractor.py`) - Content-aware extraction with automatic rubric selection
 - **OpenAI GPT-4** (`openai_analyzer.py`) - Advanced analysis with fallback to local
 - **Local Models** (`analyzer.py`) - BART/RoBERTa models for offline analysis
+
+### Clean UI Architecture (NEW!)
+
+**Minimal Terminal Interface:**
+- **CleanUI Class** (`clean_ui.py`) - Single-line progress tracking system
+- **3-Stage Progress** - [🔊] Transcribing → [🧠] Analyzing → [✅] Complete
+- **Dynamic ETA Updates** - Real-time countdown with human-readable formatting
+- **Model Selection Display** - ElevenLabs Scribe ✅ or Whisper ⚠️ fallback indication
+- **Output Suppression** - Context manager to silence verbose model loading/download logs
+- **Professional Summary** - Duration, speakers, confidence stats in single line
+
+**Key Features:**
+- Reduces output from 50+ verbose lines to ~10 clean lines
+- Single updating status line with in-place progress updates
+- Global function interface for easy integration across modules
+- Test suite (`test_clean_ui.py`) for UI functionality validation
 
 ### Enhanced Extraction System (NEW!)
 
