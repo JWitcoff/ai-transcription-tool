@@ -94,7 +94,7 @@ async def download_audio_from_url(url: str, format: str = "mp3") -> AudioDownloa
     
     # Setup yt-dlp options
     ydl_opts = {
-        'format': 'bestaudio/best',
+        'format': 'bestaudio[ext=m4a]/bestaudio[ext=mp4]/bestaudio/best',
         'outtmpl': str(downloads_dir / f"{session_id}_%(title)s.%(ext)s"),
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
@@ -180,7 +180,7 @@ async def transcribe_from_url(url: str, include_analysis: bool = True,
     temp_audio = os.path.join(temp_dir, f"transcribe_audio_{timestamp}")
     
     ydl_opts = {
-        'format': 'bestaudio/best',
+        'format': 'bestaudio[ext=m4a]/bestaudio[ext=mp4]/bestaudio/best',
         'outtmpl': temp_audio + '.%(ext)s',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
@@ -289,12 +289,12 @@ async def transcribe_from_url(url: str, include_analysis: bool = True,
             # Save transcription to files
             output_dir = Path("transcripts")
             output_dir.mkdir(exist_ok=True)
-            
+
             # Create session folder
             safe_title = title[:50].replace('/', '_').replace('\\', '_')
             session_folder = output_dir / f"{session_id}_youtube_{safe_title}"
             session_folder.mkdir(exist_ok=True)
-            
+
             # Save files
             output_formatter.save_all_formats(
                 result=result,
@@ -581,5 +581,4 @@ async def list_sessions() -> List[Dict[str, Any]]:
 # Main entry point
 if __name__ == "__main__":
     # Run the MCP server
-    import asyncio
-    asyncio.run(mcp.run())
+    mcp.run()

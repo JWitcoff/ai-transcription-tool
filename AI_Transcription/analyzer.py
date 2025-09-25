@@ -4,12 +4,13 @@ from typing import List, Dict, Optional
 from collections import Counter
 import numpy as np
 from transformers import (
-    pipeline, 
-    AutoTokenizer, 
+    pipeline,
+    AutoTokenizer,
     AutoModelForSequenceClassification,
     AutoModelForSeq2SeqLM
 )
 import torch
+from fact_extractor import FactExtractor, extract_grounded_summary
 
 class TextAnalyzer:
     """Handles text analysis, summarization, and theme extraction"""
@@ -19,84 +20,114 @@ class TextAnalyzer:
         self.summarizer = None
         self.sentiment_analyzer = None
         self.classifier = None
+        self.fact_extractor = FactExtractor()
+        self.use_extractive_summary = True  # Use fact-grounded summarization
         
     def summarize(self, text: str, max_length: int = 150, min_length: int = 30) -> str:
         """
-        Generate a summary of the input text
-        
+        Generate a factually grounded summary using extractive approach
+
         Args:
             text: Input text to summarize
-            max_length: Maximum length of summary
-            min_length: Minimum length of summary
-            
+            max_length: Maximum length of summary (converted to sentence count)
+            min_length: Minimum length of summary (converted to sentence count)
+
         Returns:
-            Summary string
+            Extractive summary string that prevents hallucinations
         """
         if not text.strip():
             return "No text provided for summarization."
-        
+
+        if self.use_extractive_summary:
+            try:
+                # Convert length to sentence count (roughly 25-30 words per sentence)
+                max_sentences = max(3, max_length // 25)
+                min_sentences = max(2, min_length // 25)
+
+                # Use extractive summarization to prevent hallucinations
+                summary = extract_grounded_summary(text, max_sentences=max_sentences)
+
+                # Ensure minimum length by adding more sentences if needed
+                if len(summary.split()) < min_length and max_sentences < 7:
+                    summary = extract_grounded_summary(text, max_sentences=max_sentences + 2)
+
+                return summary.strip()
+
+            except Exception as e:
+                print(f"Extractive summarization failed, using fallback: {e}")
+                # Fallback to generative (with risk of hallucination)
+                return self._generative_summarize(text, max_length, min_length)
+        else:
+            return self._generative_summarize(text, max_length, min_length)
+
+    def _generative_summarize(self, text: str, max_length: int, min_length: int) -> str:
+        """
+        Original generative summarization (with hallucination risk)
+        Only used as fallback when extractive fails
+        """
         # Load summarizer if not loaded
         if self.summarizer is None:
             self._load_summarizer()
-        
+
         try:
             # Split text into chunks if too long
             chunks = self._split_text(text, max_chunk_size=1000)
-            
+
             if len(chunks) == 1:
                 # Single chunk - direct summarization
-                summary = self.summarizer(chunks[0], 
-                                        max_length=max_length, 
-                                        min_length=min_length, 
+                summary = self.summarizer(chunks[0],
+                                        max_length=max_length,
+                                        min_length=min_length,
                                         do_sample=False)[0]['summary_text']
             else:
                 # Multiple chunks - summarize each then combine
                 chunk_summaries = []
                 for chunk in chunks:
-                    chunk_summary = self.summarizer(chunk, 
-                                                  max_length=max_length//len(chunks), 
+                    chunk_summary = self.summarizer(chunk,
+                                                  max_length=max_length//len(chunks),
                                                   min_length=min_length//len(chunks),
                                                   do_sample=False)[0]['summary_text']
                     chunk_summaries.append(chunk_summary)
-                
+
                 # Combine and summarize again
                 combined_text = " ".join(chunk_summaries)
                 summary = self.summarizer(combined_text,
                                         max_length=max_length,
                                         min_length=min_length,
                                         do_sample=False)[0]['summary_text']
-            
+
             return summary.strip()
-            
+
         except Exception as e:
             return f"Summarization failed: {str(e)}"
     
     def extract_themes(self, text: str, num_themes: int = 5) -> List[Dict]:
         """
-        Extract key themes from text
-        
+        Extract factually grounded themes based on extracted facts
+
         Args:
             text: Input text
             num_themes: Number of themes to extract
-            
+
         Returns:
-            List of theme dictionaries
+            List of theme dictionaries with factual evidence
         """
         if not text.strip():
             return []
-        
+
         try:
-            # Clean and preprocess text
-            cleaned_text = self._clean_text(text)
-            
-            # Extract keywords using frequency analysis
-            keywords = self._extract_keywords(cleaned_text, top_k=20)
-            
-            # Group keywords into themes using simple clustering
-            themes = self._cluster_keywords_into_themes(keywords, text, num_themes)
-            
-            return themes
-            
+            # Use fact extractor for grounded theme generation
+            fact_analysis = self.fact_extractor.extract_all_facts(text)
+            themes = fact_analysis.get('themes', [])
+
+            # If fact-based themes found, use them
+            if themes:
+                return themes[:num_themes]
+
+            # Fallback to improved keyword-based themes
+            print("Using keyword-based theme fallback (less reliable)")
+            return self._extract_keyword_themes_improved(text, num_themes)
+
         except Exception as e:
             return [{"title": "Error", "description": f"Theme extraction failed: {str(e)}", "keywords": []}]
     
@@ -322,56 +353,140 @@ class TextAnalyzer:
         # Return top keywords
         return [word for word, _ in word_freq.most_common(top_k)]
     
-    def _cluster_keywords_into_themes(self, keywords: List[str], text: str, num_themes: int) -> List[Dict]:
-        """Simple keyword clustering into themes"""
+    def _extract_keyword_themes_improved(self, text: str, num_themes: int) -> List[Dict]:
+        """Improved keyword-based theme extraction with better validation"""
+        # Clean and preprocess text
+        cleaned_text = self._clean_text(text)
+
+        # Extract keywords using frequency analysis
+        keywords = self._extract_keywords(cleaned_text, top_k=20)
+
         if not keywords:
             return []
-        
-        # Simple approach: group keywords by co-occurrence
-        themes = []
-        used_keywords = set()
-        
-        # Create themes by finding related keywords
-        sentences = re.split(r'[.!?]+', text.lower())
-        
-        for i in range(min(num_themes, len(keywords))):
-            if len(used_keywords) >= len(keywords):
-                break
-                
-            # Find an unused keyword
-            primary_keyword = None
-            for keyword in keywords:
-                if keyword not in used_keywords:
-                    primary_keyword = keyword
-                    break
-            
-            if not primary_keyword:
-                break
-            
-            # Find related keywords (co-occurring in same sentences)
-            related_keywords = [primary_keyword]
-            used_keywords.add(primary_keyword)
-            
-            for sentence in sentences:
-                if primary_keyword in sentence:
-                    for keyword in keywords:
-                        if (keyword not in used_keywords and 
-                            keyword in sentence and 
-                            len(related_keywords) < 5):
-                            related_keywords.append(keyword)
-                            used_keywords.add(keyword)
-            
-            # Create theme
-            theme_title = f"Theme {i+1}: {primary_keyword.title()}"
-            theme_description = self._generate_theme_description(related_keywords, text)
-            
-            themes.append({
-                "title": theme_title,
-                "description": theme_description,
-                "keywords": related_keywords
-            })
-        
+
+        # Group keywords into meaningful themes with better labeling
+        themes = self._cluster_keywords_into_themes_improved(keywords, text, num_themes)
+
         return themes
+
+    def _cluster_keywords_into_themes_improved(self, keywords: List[str], text: str, num_themes: int) -> List[Dict]:
+        """Improved keyword clustering with specific theme names instead of generic labels"""
+        if not keywords:
+            return []
+
+        # Define domain-specific theme categories based on common patterns
+        theme_categories = {
+            'business': ['business', 'company', 'revenue', 'profit', 'strategy', 'market', 'customer'],
+            'technology': ['technology', 'software', 'digital', 'platform', 'system', 'tool', 'app'],
+            'content': ['content', 'video', 'channel', 'audience', 'creator', 'youtube', 'social'],
+            'growth': ['growth', 'scale', 'increase', 'improve', 'optimize', 'expand', 'develop'],
+            'process': ['process', 'method', 'approach', 'framework', 'system', 'workflow', 'step']
+        }
+
+        # Categorize keywords into theme buckets
+        theme_buckets = {category: [] for category in theme_categories}
+        uncategorized = []
+
+        for keyword in keywords:
+            categorized = False
+            for category, category_keywords in theme_categories.items():
+                if any(cat_word in keyword.lower() or keyword.lower() in cat_word
+                      for cat_word in category_keywords):
+                    theme_buckets[category].append(keyword)
+                    categorized = True
+                    break
+            if not categorized:
+                uncategorized.append(keyword)
+
+        # Create themes from populated buckets
+        themes = []
+        sentences = re.split(r'[.!?]+', text.lower())
+
+        for category, category_keywords in theme_buckets.items():
+            if category_keywords and len(themes) < num_themes:
+                # Generate specific theme title based on category
+                theme_title = self._generate_specific_theme_title(category, category_keywords, text)
+                theme_description = self._generate_theme_description_improved(category_keywords, text)
+
+                themes.append({
+                    "title": theme_title,
+                    "description": theme_description,
+                    "keywords": category_keywords[:5],
+                    "category": category,
+                    "evidence_count": len(category_keywords)
+                })
+
+        # Add uncategorized keywords as general themes if needed
+        if len(themes) < num_themes and uncategorized:
+            remaining_slots = num_themes - len(themes)
+            for i in range(min(remaining_slots, len(uncategorized) // 3)):
+                start_idx = i * 3
+                theme_keywords = uncategorized[start_idx:start_idx + 3]
+
+                theme_title = f"Key Topics: {', '.join(theme_keywords[:2])}"
+                theme_description = self._generate_theme_description_improved(theme_keywords, text)
+
+                themes.append({
+                    "title": theme_title,
+                    "description": theme_description,
+                    "keywords": theme_keywords,
+                    "category": "general",
+                    "evidence_count": len(theme_keywords)
+                })
+
+        return themes
+
+    def _generate_specific_theme_title(self, category: str, keywords: List[str], text: str) -> str:
+        """Generate specific theme titles instead of generic ones"""
+        # Find the most prominent keyword in context
+        keyword_counts = {}
+        text_lower = text.lower()
+
+        for keyword in keywords:
+            keyword_counts[keyword] = text_lower.count(keyword.lower())
+
+        if keyword_counts:
+            primary_keyword = max(keyword_counts, key=keyword_counts.get)
+
+            # Generate specific titles based on category and primary keyword
+            if category == 'business':
+                return f"Business Strategy: {primary_keyword.title()}"
+            elif category == 'technology':
+                return f"Technology & Tools: {primary_keyword.title()}"
+            elif category == 'content':
+                return f"Content Strategy: {primary_keyword.title()}"
+            elif category == 'growth':
+                return f"Growth & Optimization: {primary_keyword.title()}"
+            elif category == 'process':
+                return f"Methods & Frameworks: {primary_keyword.title()}"
+
+        # Fallback to category name
+        return f"{category.title()} Discussion"
+
+    def _generate_theme_description_improved(self, keywords: List[str], text: str) -> str:
+        """Generate factual theme descriptions based on actual content"""
+        # Find sentences containing the keywords
+        sentences = re.split(r'[.!?]+', text)
+        relevant_sentences = []
+
+        for sentence in sentences:
+            sentence_lower = sentence.lower()
+            keyword_matches = sum(1 for keyword in keywords if keyword in sentence_lower)
+            if keyword_matches >= 2:  # Sentence must contain multiple keywords
+                relevant_sentences.append(sentence.strip())
+
+        if relevant_sentences:
+            # Return the most comprehensive sentence (longest with multiple keywords)
+            best_sentence = max(relevant_sentences, key=lambda s: len(s.split()))
+            return best_sentence[:200] + "..." if len(best_sentence) > 200 else best_sentence
+        else:
+            # Fallback: count keyword frequency
+            keyword_freq = Counter()
+            for keyword in keywords:
+                keyword_freq[keyword] = text.lower().count(keyword.lower())
+
+            top_keywords = [k for k, _ in keyword_freq.most_common(3)]
+            return f"Discussion includes {len(keywords)} related topics: {', '.join(top_keywords)}"
     
     def _generate_theme_description(self, keywords: List[str], text: str) -> str:
         """Generate a description for a theme based on keywords"""

@@ -35,10 +35,10 @@ def print_menu():
     print()
     
     print("🎬 TRANSCRIPTION MODES:")
-    print("  2️⃣  🎯 Quick URL Transcription ⭐ RECOMMENDED")
-    print("       • Enter any video URL → Get complete analysis")
+    print("  2️⃣  🎯 Quick Transcription ⭐ RECOMMENDED")
+    print("       • Works with URLs AND local files")
     print("       • Custom analysis prompts + organized file saving")
-    print("       • Dead simple: one URL, complete results")
+    print("       • Supports MP4, MOV, MP3, WAV, YouTube, and more")
     print()
     print("  3️⃣  📁 Advanced File/URL Options")
     print("       • Manual quality selection")
@@ -224,9 +224,9 @@ def audio_download_only():
     input("\nPress Enter to return to menu...")
 
 def quick_url_transcription():
-    """Option 1: Quick URL transcription"""
+    """Option 2: Quick transcription for URLs and local files"""
     clear_screen()
-    print("🎯 QUICK URL TRANSCRIPTION")
+    print("🎯 QUICK TRANSCRIPTION")
     print("=" * 60)
     
     # Import and run quick URL transcribe

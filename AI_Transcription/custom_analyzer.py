@@ -6,6 +6,7 @@ Enhanced with deep extraction pipeline for frameworks, metrics, and psychology
 import os
 from typing import Dict, List, Optional, Any
 from dotenv import load_dotenv
+from fact_extractor import FactExtractor, extract_grounded_summary
 
 # Load environment variables
 load_dotenv()
@@ -13,12 +14,14 @@ load_dotenv()
 class CustomAnalyzer:
     """Performs custom analysis with enhanced deep extraction capabilities"""
     
-    def __init__(self, use_deep_extraction: bool = True):
+    def __init__(self, use_deep_extraction: bool = False):  # Disabled by default due to quality issues
         self.api_key = os.getenv('OPENAI_API_KEY')
         self.client = None
         self.use_deep_extraction = use_deep_extraction
         self.deep_extractor = None
         self.validator = None
+        self.fact_extractor = FactExtractor()  # For fact validation and grounding
+        self.use_factual_grounding = True  # Enable fact-based analysis
         
         # Initialize deep extraction components
         if self.use_deep_extraction:
@@ -298,6 +301,46 @@ Format as a comprehensive answer with:
         
         return "\n".join(analysis_parts)
     
+    def _is_valid_framework(self, fw: Dict) -> bool:
+        """Check if a framework extraction is actually valid"""
+        if not isinstance(fw, dict):
+            return False
+        
+        name = fw.get('name', '')
+        definition = fw.get('definition', '')
+        
+        # Filter out garbage extractions
+        if len(name) < 5 or len(definition) < 10:  # Too short
+            return False
+        if name.lower().startswith("i don't"):  # Not a framework
+            return False
+        if name.count(' ') > 15:  # Too long, probably a full sentence
+            return False
+        if not any(c.isalpha() for c in name):  # No letters
+            return False
+            
+        return True
+    
+    def _is_valid_principle(self, principle: Dict) -> bool:
+        """Check if a psychology principle is actually valid"""
+        if not isinstance(principle, dict):
+            return False
+            
+        name = principle.get('name', '')
+        context = principle.get('context', '')
+        
+        # Single words are not principles
+        if len(name.split()) <= 1:
+            return False
+        # Must have meaningful context
+        if len(context) < 20:
+            return False
+        # Check for truncated context (ends mid-word)
+        if context and not context[-1] in '.!?"\'':
+            return False
+            
+        return True
+    
     def _format_as_playbook(self, extraction: Dict, user_analysis: str, user_prompt: str) -> str:
         """Format the analysis as an actionable playbook"""
         
@@ -322,24 +365,25 @@ Format as a comprehensive answer with:
                 playbook_parts.append(f"{i}. {step}")
             playbook_parts.append("")
         
-        # Core frameworks section
+        # Core frameworks section - WITH VALIDATION
         frameworks = extraction.get("frameworks", [])
-        if frameworks:
+        valid_frameworks = [fw for fw in frameworks if self._is_valid_framework(fw)]
+        
+        if valid_frameworks:
             playbook_parts.append("## 🔧 CORE FRAMEWORKS")
-            for fw in frameworks[:5]:
-                if isinstance(fw, dict):
-                    name = fw.get("name", "Framework")
-                    definition = fw.get("definition", "")
-                    components = fw.get("components", [])
-                    
-                    playbook_parts.append(f"### {name}")
-                    if definition:
-                        playbook_parts.append(f"**Definition:** {definition}")
-                    if components:
-                        playbook_parts.append("**Components:**")
-                        for component in components:
-                            playbook_parts.append(f"- {component}")
-                    playbook_parts.append("")
+            for fw in valid_frameworks[:5]:  # Limit to 5 valid ones
+                name = fw.get("name", "Framework")
+                definition = fw.get("definition", "")
+                components = fw.get("components", [])
+                
+                playbook_parts.append(f"### {name}")
+                if definition:
+                    playbook_parts.append(f"**Definition:** {definition}")
+                if components:
+                    playbook_parts.append("**Components:**")
+                    for component in components:
+                        playbook_parts.append(f"- {component}")
+                playbook_parts.append("")
         
         # Proven tactics section
         metrics = extraction.get("metrics", [])
@@ -352,20 +396,25 @@ Format as a comprehensive answer with:
                     playbook_parts.append(f"- **{value}** - {context}")
             playbook_parts.append("")
         
-        # Psychology principles
-        psychology = extraction.get("psychology", {})
-        influence_principles = psychology.get("influence_principles", []) if psychology else []
-        if influence_principles:
-            playbook_parts.append("## 🧠 PSYCHOLOGY PRINCIPLES")
-            for principle in influence_principles[:5]:
-                if isinstance(principle, dict):
-                    name = principle.get("principle", "")
-                    context = principle.get("context", "")
-                    playbook_parts.append(f"- **{name.title()}:** {context}")
-            playbook_parts.append("")
+        # Psychology principles - DISABLED due to poor extraction quality
+        # The extractor is just grabbing random words, not actual psychological principles
+        # Uncomment and improve validation if this feature is needed in future
+        
+        # psychology = extraction.get("psychology", {})
+        # influence_principles = psychology.get("influence_principles", []) if psychology else []
+        # valid_principles = [p for p in influence_principles if self._is_valid_principle(p)]
+        # 
+        # if valid_principles:
+        #     playbook_parts.append("## 🧠 PSYCHOLOGY PRINCIPLES")
+        #     for principle in valid_principles[:3]:  # Limit to 3 valid ones
+        #         name = principle.get("principle", "")
+        #         context = principle.get("context", "")
+        #         if len(context) > 20:  # Only show if context is meaningful
+        #             playbook_parts.append(f"- **{name.title()}:** {context}")
+        #     playbook_parts.append("")
         
         # Truthful quality summary (replacing fake coverage percentages)
-        truthful_quality = deep_extraction.get("truthful_quality")
+        truthful_quality = extraction.get("truthful_quality")
         if truthful_quality:
             playbook_parts.append("## 📊 EXTRACTION SUMMARY")
             
@@ -413,19 +462,103 @@ Format as a comprehensive answer with:
         return "\n".join(playbook_parts)
     
     def _analyze_with_openai(self, transcript: str, user_prompt: str, video_title: str) -> Dict[str, Any]:
-        """Use OpenAI GPT for custom analysis"""
+        """Use OpenAI GPT with fact-grounded prompts to prevent hallucinations"""
         try:
-            # Build context
-            context = f"Video Title: {video_title}\n\n" if video_title else ""
-            
-            # Create system message for better results
-            system_message = """You are an expert analyst helping users extract specific information from video transcripts. 
-            Provide clear, structured, and actionable insights based on the user's request.
-            Use bullet points, numbered lists, and clear sections where appropriate.
-            Be specific and quote relevant parts of the transcript when helpful."""
-            
-            # Construct the prompt
-            full_prompt = f"""{context}Based on this transcript, please {user_prompt}
+            # First extract facts for grounding
+            if self.use_factual_grounding:
+                fact_analysis = self.fact_extractor.extract_all_facts(transcript)
+                return self._analyze_with_fact_grounded_prompt(transcript, user_prompt, video_title, fact_analysis)
+            else:
+                return self._analyze_with_basic_prompt(transcript, user_prompt, video_title)
+
+        except Exception as e:
+            print(f"OpenAI analysis failed: {e}")
+            # Fallback to local
+            return self._analyze_with_local(transcript, user_prompt)
+
+    def _analyze_with_fact_grounded_prompt(self, transcript: str, user_prompt: str,
+                                         video_title: str, fact_analysis: Dict) -> Dict[str, Any]:
+        """Fact-grounded analysis that prevents hallucinations"""
+        # Extract key facts for grounding
+        validated_facts = fact_analysis.get('facts', {})
+
+        # Build fact context
+        fact_context = self._build_fact_context(validated_facts)
+
+        # Create constrained system message
+        system_message = """You are a fact-based analyst. You must ONLY use information explicitly provided in the transcript and fact summary.
+
+CRITICAL RULES:
+1. NEVER invent or speculate about information not in the transcript
+2. ONLY reference facts, quotes, and data points that are explicitly provided
+3. If information is missing, say "not mentioned in transcript" rather than guessing
+4. Quote directly from the source material when making claims
+5. Focus on extractive analysis rather than generative interpretation
+6. Mark any inference clearly as "based on context" vs "explicitly stated"
+
+Your goal is to provide accurate, grounded analysis based solely on the provided content."""
+
+        # Build context with video title if available
+        context_parts = []
+        if video_title:
+            context_parts.append(f"Video Title: {video_title}")
+
+        context_parts.append("\n=== EXTRACTED FACTS ===")
+        context_parts.append(fact_context)
+
+        context_parts.append("\n=== USER REQUEST ===")
+        context_parts.append(f"Please {user_prompt}")
+
+        context_parts.append("\n=== TRANSCRIPT EXCERPT ===")
+        context_parts.append(transcript[:6000])  # Limit to avoid token limits
+
+        context_parts.append("\n=== INSTRUCTIONS ===")
+        context_parts.append("""Base your analysis ONLY on the facts and transcript provided above.
+Structure your response with:
+- Clear headers and bullet points
+- Direct quotes from transcript when relevant
+- Distinction between explicit facts vs contextual inferences
+- "Not mentioned" for missing information rather than speculation""")
+
+        full_context = "\n".join(context_parts)
+
+        response = self.client.chat.completions.create(
+            model="gpt-4o",  # Use more capable model for better instruction following
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": full_context}
+            ],
+            temperature=0.1,  # Low temperature for factual accuracy
+            max_tokens=2000
+        )
+
+        analysis = response.choices[0].message.content.strip()
+
+        # Validate the analysis doesn't contain blacklisted terms
+        validated_analysis = self._validate_analysis_output(analysis, validated_facts)
+
+        return {
+            "success": True,
+            "prompt": user_prompt,
+            "analysis": validated_analysis,
+            "provider": "OpenAI GPT-4 (Fact-Grounded)",
+            "fact_validation": fact_analysis.get('validation_summary', {}),
+            "confidence_score": fact_analysis.get('confidence_score', 0.0)
+        }
+
+    def _analyze_with_basic_prompt(self, transcript: str, user_prompt: str, video_title: str) -> Dict[str, Any]:
+        """Basic OpenAI analysis (original method with hallucination risk)"""
+        # Build context
+        context = f"Video Title: {video_title}\n\n" if video_title else ""
+
+        # Create system message for better results
+        system_message = """You are an expert analyst helping users extract specific information from video transcripts.
+        Provide clear, structured, and actionable insights based on the user's request.
+        Use bullet points, numbered lists, and clear sections where appropriate.
+        Be specific and quote relevant parts of the transcript when helpful."""
+
+        # Construct the prompt
+        full_prompt = f"""{context}Based on this transcript, please {user_prompt}
 
 Transcript:
 {transcript[:8000]}  # Limit to avoid token limits
@@ -435,86 +568,38 @@ Please provide a comprehensive response with:
 - Specific examples from the transcript
 - Actionable insights where relevant"""
 
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": system_message},
-                    {"role": "user", "content": full_prompt}
-                ],
-                temperature=0.3,
-                max_tokens=2000
-            )
-            
-            analysis = response.choices[0].message.content.strip()
-            
-            return {
-                "success": True,
-                "prompt": user_prompt,
-                "analysis": analysis,
-                "provider": "OpenAI GPT-4"
-            }
-            
-        except Exception as e:
-            print(f"OpenAI analysis failed: {e}")
-            # Fallback to local
-            return self._analyze_with_local(transcript, user_prompt)
+        response = self.client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": full_prompt}
+            ],
+            temperature=0.3,
+            max_tokens=2000
+        )
+
+        analysis = response.choices[0].message.content.strip()
+
+        return {
+            "success": True,
+            "prompt": user_prompt,
+            "analysis": analysis,
+            "provider": "OpenAI GPT-4 (Basic)"
+        }
     
     def _analyze_with_local(self, transcript: str, user_prompt: str) -> Dict[str, Any]:
-        """Use local models for custom analysis (fallback)"""
+        """Use fact-grounded local analysis (improved fallback)"""
         try:
             from analyzer import TextAnalyzer
             local_analyzer = TextAnalyzer()
-            
-            # Parse the user prompt to determine what they want
-            prompt_lower = user_prompt.lower()
-            
-            # Build response based on keywords in prompt
-            analysis_parts = []
-            
-            # Check for common request types
-            if any(word in prompt_lower for word in ['summary', 'summarize', 'overview']):
-                summary = local_analyzer.summarize(transcript, max_length=200)
-                analysis_parts.append(f"SUMMARY:\n{summary}")
-            
-            if any(word in prompt_lower for word in ['theme', 'topic', 'subject']):
-                themes = local_analyzer.extract_themes(transcript, num_themes=5)
-                themes_text = "\n\nKEY THEMES:\n"
-                for i, theme in enumerate(themes, 1):
-                    themes_text += f"{i}. {theme.get('title', 'Theme')}\n"
-                    if theme.get('description'):
-                        themes_text += f"   {theme['description']}\n"
-                analysis_parts.append(themes_text)
-            
-            if any(word in prompt_lower for word in ['sentiment', 'emotion', 'feeling', 'mood']):
-                sentiment = local_analyzer.analyze_sentiment(transcript)
-                sentiment_text = f"\n\nSENTIMENT:\n{sentiment.get('label', 'Unknown')} "
-                sentiment_text += f"(confidence: {sentiment.get('confidence', 0):.1%})"
-                analysis_parts.append(sentiment_text)
-            
-            # If no specific keywords matched, provide a general analysis
-            if not analysis_parts:
-                analysis_parts.append("Note: Using local analysis (limited capabilities).")
-                analysis_parts.append(f"\nYour request: {user_prompt}")
-                analysis_parts.append("\nGenerating basic analysis...")
-                
-                # Provide summary and themes as default
-                summary = local_analyzer.summarize(transcript, max_length=150)
-                analysis_parts.append(f"\nSUMMARY:\n{summary}")
-                
-                themes = local_analyzer.extract_themes(transcript, num_themes=3)
-                if themes:
-                    analysis_parts.append("\n\nMAIN TOPICS:")
-                    for theme in themes:
-                        analysis_parts.append(f"• {theme.get('title', 'Topic')}")
-            
-            return {
-                "success": True,
-                "prompt": user_prompt,
-                "analysis": "\n".join(analysis_parts),
-                "provider": "Local Models",
-                "note": "For best results with custom prompts, configure OpenAI API key"
-            }
-            
+
+            # Use fact extraction for grounding
+            if self.use_factual_grounding:
+                fact_analysis = self.fact_extractor.extract_all_facts(transcript)
+                return self._analyze_local_with_facts(transcript, user_prompt, fact_analysis, local_analyzer)
+            else:
+                return self._analyze_local_basic(transcript, user_prompt, local_analyzer)
+
         except Exception as e:
             return {
                 "success": False,
@@ -522,6 +607,146 @@ Please provide a comprehensive response with:
                 "prompt": user_prompt,
                 "analysis": ""
             }
+
+    def _analyze_local_with_facts(self, transcript: str, user_prompt: str,
+                                fact_analysis: Dict, local_analyzer) -> Dict[str, Any]:
+        """Local analysis grounded in extracted facts"""
+        validated_facts = fact_analysis.get('facts', {})
+        themes = fact_analysis.get('themes', [])
+
+        # Parse the user prompt to determine what they want
+        prompt_lower = user_prompt.lower()
+
+        # Build response based on keywords in prompt
+        analysis_parts = []
+        analysis_parts.append(f"FACT-GROUNDED ANALYSIS: {user_prompt}")
+        analysis_parts.append("=" * 50)
+
+        # Check for common request types and use factual data
+        if any(word in prompt_lower for word in ['summary', 'summarize', 'overview']):
+            # Use extractive summary to prevent hallucinations
+            summary = extract_grounded_summary(transcript, max_sentences=5)
+            analysis_parts.append(f"\nEXTRACTIVE SUMMARY:\n{summary}")
+
+        if any(word in prompt_lower for word in ['theme', 'topic', 'subject']):
+            if themes:
+                analysis_parts.append("\nFACT-BASED THEMES:")
+                for i, theme in enumerate(themes[:5], 1):
+                    title = theme.get('title', f'Theme {i}')
+                    description = theme.get('description', 'No description')
+                    evidence_count = theme.get('evidence_count', 0)
+                    analysis_parts.append(f"{i}. {title}")
+                    analysis_parts.append(f"   {description}")
+                    if evidence_count > 0:
+                        analysis_parts.append(f"   (Based on {evidence_count} factual references)")
+            else:
+                analysis_parts.append("\nNo clear factual themes identified in transcript.")
+
+        if any(word in prompt_lower for word in ['fact', 'data', 'metric', 'number']):
+            # Show extracted facts
+            self._add_fact_summary(analysis_parts, validated_facts)
+
+        if any(word in prompt_lower for word in ['quote', 'said', 'statement']):
+            quotes = validated_facts.get('quotes', [])
+            if quotes:
+                memorable_quotes = [q for q in quotes if q.is_memorable][:3]
+                analysis_parts.append("\nKEY QUOTES:")
+                for quote in memorable_quotes:
+                    speaker = f" ({quote.speaker})" if quote.speaker else ""
+                    analysis_parts.append(f'• "{quote.text}"{speaker}')
+            else:
+                analysis_parts.append("\nNo clear quotes extracted from transcript.")
+
+        if any(word in prompt_lower for word in ['sentiment', 'emotion', 'feeling', 'mood']):
+            sentiment = local_analyzer.analyze_sentiment(transcript)
+            sentiment_text = f"\nSENTIMENT ANALYSIS:\n{sentiment.get('label', 'Unknown')} "
+            sentiment_text += f"(confidence: {sentiment.get('confidence', 0):.1%})"
+            analysis_parts.append(sentiment_text)
+
+        # If no specific keywords matched, provide a comprehensive analysis
+        if len(analysis_parts) <= 2:  # Only header added
+            analysis_parts.append("\nCOMPREHENSIVE FACTUAL ANALYSIS:")
+
+            # Add extractive summary
+            summary = extract_grounded_summary(transcript, max_sentences=4)
+            analysis_parts.append(f"\nSummary: {summary}")
+
+            # Add fact summary
+            self._add_fact_summary(analysis_parts, validated_facts)
+
+            # Add themes if available
+            if themes:
+                analysis_parts.append("\nMain Topics:")
+                for theme in themes[:3]:
+                    analysis_parts.append(f"• {theme.get('title', 'Topic')}")
+
+        # Add validation summary
+        validation_summary = fact_analysis.get('validation_summary', {})
+        total_facts = validation_summary.get('total_facts_extracted', 0)
+        confidence = fact_analysis.get('confidence_score', 0.0)
+
+        analysis_parts.append(f"\n[Analysis based on {total_facts} validated facts, confidence: {confidence:.1%}]")
+
+        return {
+            "success": True,
+            "prompt": user_prompt,
+            "analysis": "\n".join(analysis_parts),
+            "provider": "Local Models (Fact-Grounded)",
+            "fact_validation": validation_summary,
+            "confidence_score": confidence
+        }
+
+    def _analyze_local_basic(self, transcript: str, user_prompt: str, local_analyzer) -> Dict[str, Any]:
+        """Basic local analysis (original method with hallucination risk)"""
+        # Parse the user prompt to determine what they want
+        prompt_lower = user_prompt.lower()
+
+        # Build response based on keywords in prompt
+        analysis_parts = []
+
+        # Check for common request types
+        if any(word in prompt_lower for word in ['summary', 'summarize', 'overview']):
+            summary = local_analyzer.summarize(transcript, max_length=200)
+            analysis_parts.append(f"SUMMARY:\n{summary}")
+
+        if any(word in prompt_lower for word in ['theme', 'topic', 'subject']):
+            themes = local_analyzer.extract_themes(transcript, num_themes=5)
+            themes_text = "\n\nKEY THEMES:\n"
+            for i, theme in enumerate(themes, 1):
+                themes_text += f"{i}. {theme.get('title', 'Theme')}\n"
+                if theme.get('description'):
+                    themes_text += f"   {theme['description']}\n"
+            analysis_parts.append(themes_text)
+
+        if any(word in prompt_lower for word in ['sentiment', 'emotion', 'feeling', 'mood']):
+            sentiment = local_analyzer.analyze_sentiment(transcript)
+            sentiment_text = f"\n\nSENTIMENT:\n{sentiment.get('label', 'Unknown')} "
+            sentiment_text += f"(confidence: {sentiment.get('confidence', 0):.1%})"
+            analysis_parts.append(sentiment_text)
+
+        # If no specific keywords matched, provide a general analysis
+        if not analysis_parts:
+            analysis_parts.append("Note: Using local analysis (limited capabilities).")
+            analysis_parts.append(f"\nYour request: {user_prompt}")
+            analysis_parts.append("\nGenerating basic analysis...")
+
+            # Provide summary and themes as default
+            summary = local_analyzer.summarize(transcript, max_length=150)
+            analysis_parts.append(f"\nSUMMARY:\n{summary}")
+
+            themes = local_analyzer.extract_themes(transcript, num_themes=3)
+            if themes:
+                analysis_parts.append("\n\nMAIN TOPICS:")
+                for theme in themes:
+                    analysis_parts.append(f"• {theme.get('title', 'Topic')}")
+
+        return {
+            "success": True,
+            "prompt": user_prompt,
+            "analysis": "\n".join(analysis_parts),
+            "provider": "Local Models (Basic)",
+            "note": "For best results with custom prompts, configure OpenAI API key"
+        }
     
     def suggest_prompts(self, video_title: str = "", video_description: str = "") -> List[str]:
         """
@@ -584,6 +809,87 @@ Please provide a comprehensive response with:
             ]
         
         return suggestions
+
+    def _build_fact_context(self, validated_facts: Dict) -> str:
+        """Build context string from validated facts"""
+        context_parts = []
+
+        # Add dates and events
+        events = validated_facts.get('dates_and_events', [])
+        if events:
+            context_parts.append("DATES & EVENTS:")
+            for fact in events[:5]:
+                context_parts.append(f"• {fact.content} - {fact.context[:100]}")
+
+        # Add metrics and numbers
+        metrics = validated_facts.get('metrics_and_numbers', [])
+        if metrics:
+            context_parts.append("\nMETRICS & DATA:")
+            for fact in metrics[:5]:
+                context_parts.append(f"• {fact.content} - {fact.context[:100]}")
+
+        # Add companies and entities
+        entities = validated_facts.get('companies_and_entities', [])
+        if entities:
+            entity_names = list(set(f.content for f in entities))
+            context_parts.append(f"\nCOMPANIES/ENTITIES: {', '.join(entity_names[:10])}")
+
+        # Add memorable quotes
+        quotes = validated_facts.get('quotes', [])
+        memorable_quotes = [q for q in quotes if q.is_memorable][:3]
+        if memorable_quotes:
+            context_parts.append("\nKEY QUOTES:")
+            for quote in memorable_quotes:
+                speaker = f" ({quote.speaker})" if quote.speaker else ""
+                context_parts.append(f'• "{quote.text}"{speaker}')
+
+        return "\n".join(context_parts) if context_parts else "No specific facts extracted."
+
+    def _validate_analysis_output(self, analysis: str, validated_facts: Dict) -> str:
+        """Validate analysis output to ensure it doesn't contain blacklisted terms"""
+        # Check for joke terms that should not appear
+        joke_terms = {
+            'iphone 17', 'iphone 18', 'iphone 20', 'tesla phone',
+            'vision pro 2', 'chatgpt 10', 'gpt-10'
+        }
+
+        analysis_lower = analysis.lower()
+
+        # Flag potential hallucinations
+        hallucination_warnings = []
+        for term in joke_terms:
+            if term in analysis_lower:
+                hallucination_warnings.append(term)
+
+        if hallucination_warnings:
+            warning_text = f"\n\n⚠️ WARNING: Analysis may contain speculative content: {', '.join(hallucination_warnings)}"
+            warning_text += "\nThis information was not validated against the transcript."
+            analysis += warning_text
+
+        return analysis
+
+    def _add_fact_summary(self, analysis_parts: List[str], validated_facts: Dict) -> None:
+        """Add fact summary to analysis parts"""
+        events = validated_facts.get('dates_and_events', [])
+        metrics = validated_facts.get('metrics_and_numbers', [])
+        entities = validated_facts.get('companies_and_entities', [])
+
+        if events or metrics or entities:
+            analysis_parts.append("\nEXTRACTED FACTS:")
+
+            if events:
+                event_content = [f.content for f in events[:3]]
+                analysis_parts.append(f"• Events: {', '.join(event_content)}")
+
+            if metrics:
+                metric_content = [f.content for f in metrics[:3]]
+                analysis_parts.append(f"• Metrics: {', '.join(metric_content)}")
+
+            if entities:
+                entity_names = list(set(f.content for f in entities))[:3]
+                analysis_parts.append(f"• Entities: {', '.join(entity_names)}")
+        else:
+            analysis_parts.append("\nNo specific factual data extracted from transcript.")
     
     def _format_prompting_analysis(self, extraction: Dict) -> str:
         """Format prompting extraction for display"""

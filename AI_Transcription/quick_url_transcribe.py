@@ -20,20 +20,91 @@ from captions import segments_to_srt, segments_to_vtt, Segment as CaptionSegment
 from custom_analyzer import CustomAnalyzer
 from output_formatter import OutputFormatter
 from file_manager import FileManager
+from progress_tracker import start_transcription_progress, start_step, complete_step, update_progress, skip_step, finish_progress
 
 def clear_screen():
     """Clear the terminal screen"""
     os.system('cls' if os.name == 'nt' else 'clear')
 
+def process_local_file(file_path: str) -> tuple:
+    """Process local audio/video file and return audio path with metadata"""
+    import subprocess
+    
+    # Define supported extensions
+    video_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv', '.m4v']
+    audio_extensions = ['.mp3', '.wav', '.flac', '.m4a', '.ogg', '.aac', '.wma', '.opus']
+    
+    # Get file info
+    file_name = os.path.basename(file_path)
+    file_ext = os.path.splitext(file_path)[1].lower()
+    file_size = os.path.getsize(file_path) / (1024 * 1024)  # Size in MB
+    
+    print(f"📁 Processing local file: {file_name}")
+    print(f"   Size: {file_size:.1f} MB")
+    
+    audio_file = file_path
+    temp_audio = None
+    
+    # Check if we need to extract audio from video
+    if file_ext in video_extensions:
+        print("🎬 Video file detected. Extracting audio...")
+        
+        # Create temp file for extracted audio
+        temp_dir = tempfile.gettempdir()
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        temp_audio = os.path.join(temp_dir, f"extracted_audio_{timestamp}.wav")
+        
+        try:
+            # Use ffmpeg to extract audio
+            ffmpeg_cmd = [
+                'ffmpeg',
+                '-i', file_path,
+                '-vn',  # No video
+                '-acodec', 'pcm_s16le',  # WAV format
+                '-ar', '16000',  # Sample rate
+                '-ac', '1',  # Mono
+                '-y',  # Overwrite output
+                temp_audio
+            ]
+            
+            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+            
+            if result.returncode != 0:
+                raise Exception(f"FFmpeg extraction failed: {result.stderr}")
+            
+            audio_file = temp_audio
+            print("✅ Audio extracted successfully")
+            
+        except FileNotFoundError:
+            raise Exception("FFmpeg not found. Please install FFmpeg first.")
+            
+    elif file_ext not in audio_extensions:
+        print(f"⚠️ Unknown file format: {file_ext}. Attempting to process as audio...")
+    
+    # Create metadata similar to URL downloads
+    metadata = {
+        'title': os.path.splitext(file_name)[0],
+        'duration': None,  # Could be extracted with ffprobe if needed
+        'description': f'Local file: {file_name}',
+        'source': 'local_file',
+        'original_path': file_path
+    }
+    
+    # CRITICAL: Track whether the audio_file is temporary (safe to delete)
+    # Only video extractions create temp files. Audio files use the original!
+    is_temp_file = (file_ext in video_extensions)
+    
+    return audio_file, metadata, is_temp_file
+
 def download_audio(url: str) -> tuple:
     """Download audio from URL and return temp file path with metadata"""
-    print(f"📥 Downloading audio from: {url}")
-    
+    start_step("download", "📥 Downloading audio from URL")
+
     # Create temp file
     temp_dir = tempfile.gettempdir()
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     temp_audio = os.path.join(temp_dir, f"transcribe_audio_{timestamp}")
-    
+
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': temp_audio + '.%(ext)s',
@@ -45,10 +116,10 @@ def download_audio(url: str) -> tuple:
         'quiet': True,
         'no_warnings': True,
     }
-    
+
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            print("   Extracting audio...")
+            update_progress("download", 30, "📥 Extracting audio from video")
             info = ydl.extract_info(url, download=True)
             title = info.get('title', 'Unknown')
             duration = info.get('duration', 0)
@@ -56,34 +127,65 @@ def download_audio(url: str) -> tuple:
             
             # Find the output file
             for file in Path(temp_dir).glob(f"transcribe_audio_{timestamp}.*"):
-                print(f"✅ Audio downloaded: {title}")
-                if duration:
-                    print(f"   Duration: {duration//60}:{duration%60:02d}")
-                
+                update_progress("download", 90, "📥 Finalizing audio extraction")
+
                 metadata = {
                     'title': title,
                     'duration': duration,
                     'description': description,
                     'url': url
                 }
-                return str(file), metadata
+
+                complete_step("download")
+
+                # Downloaded files are always temporary and safe to delete
+                return str(file), metadata, True
                 
         raise Exception("Audio file not found after download")
         
     except Exception as e:
         print(f"❌ Download failed: {e}")
-        return None, None
+        print("\n💡 Troubleshooting tips:")
+        print("   • Make sure the URL is valid and accessible")
+        print("   • For YouTube: Check if the video is age-restricted or private")
+        print("   • Try updating yt-dlp: pip install --upgrade yt-dlp")
+        print("   • Check your internet connection")
+        return None, None, False
+
+def get_audio_file(input_path: str) -> tuple:
+    """Get audio from URL or local file path
+    
+    Returns:
+        tuple: (audio_file_path, metadata, is_temp_file)
+        The is_temp_file flag indicates if the audio file can be safely deleted
+    """
+    
+    # Remove quotes if present (from drag & drop)
+    if input_path.startswith('"') and input_path.endswith('"'):
+        input_path = input_path[1:-1]
+    elif input_path.startswith("'") and input_path.endswith("'"):
+        input_path = input_path[1:-1]
+    
+    # Check if it's a local file
+    if os.path.exists(input_path):
+        return process_local_file(input_path)
+    else:
+        # Assume it's a URL
+        if not input_path.startswith(('http://', 'https://')):
+            # Try as URL with https
+            input_path = 'https://' + input_path
+        return download_audio(input_path)
 
 def transcribe_audio(audio_file: str):
     """Transcribe audio with best available method"""
-    print(f"\n🔄 Starting transcription...")
-    
+    start_step("setup", "🛠️ Loading transcription models")
+
     # Check if we should use Scribe (env var or default)
     use_scribe = os.getenv("USE_SCRIBE", "true").lower() == "true"
-    
+
     if use_scribe:
         try:
-            print("🚀 Attempting ElevenLabs Scribe (premium accuracy + diarization)...")
+            update_progress("setup", 50, "🚀 Loading ElevenLabs Scribe")
             transcriber = AudioTranscriber(
                 model_size='base',  # Used as fallback
                 enable_diarization=True,
@@ -92,38 +194,45 @@ def transcribe_audio(audio_file: str):
             
             # Check if Scribe loaded successfully
             if transcriber.diarization_provider == 'elevenlabs':
+                complete_step("setup")
+                start_step("transcribe", "🎤 Transcribing with ElevenLabs Scribe")
+
                 result = transcriber.transcribe_from_file(audio_file, include_timestamps=True)
-                
+
                 if result and result.get('text'):
-                    print("\n✅ Transcription complete with ElevenLabs Scribe!")
+                    complete_step("transcribe")
+                    skip_step("diarize", "included in ElevenLabs Scribe")
                     return result
                 else:
                     print("⚠️  Scribe returned empty result, falling back...")
             else:
                 print("⚠️  Scribe not available, using fallback...")
-                
+
         except Exception as e:
             print(f"⚠️  Scribe failed: {e}")
             print("   Falling back to Whisper...")
     
     # Fallback to Whisper
     try:
-        print("🔄 Using OpenAI Whisper for transcription...")
-        print("   Model: base (74MB) - Good balance of speed and accuracy")
-        
+        update_progress("setup", 80, "🔄 Loading Whisper model")
+
         transcriber = AudioTranscriber(
             model_size='base',
             enable_diarization=False
         )
-        
+
+        complete_step("setup")
+        start_step("transcribe", "🎤 Transcribing with Whisper")
+
         result = transcriber.transcribe_from_file(audio_file, include_timestamps=True)
-        
+
         if result and result.get('text'):
-            print("\n✅ Transcription complete with Whisper!")
+            complete_step("transcribe")
+            skip_step("diarize", "not available with local Whisper")
             return result
         else:
             raise Exception("Empty transcription result")
-        
+
     except Exception as e:
         print(f"❌ All transcription methods failed: {e}")
         return None
@@ -310,33 +419,43 @@ def format_srt_time(seconds):
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
 def main():
-    """Main function - simple URL transcription with custom analysis"""
+    """Main function - transcription with custom analysis for URLs and local files"""
     clear_screen()
     
-    print("🎬 QUICK URL TRANSCRIPTION")
+    print("🎬 QUICK TRANSCRIPTION")
     print("=" * 60)
-    print("Enter any video URL and get complete transcription + analysis!")
+    print("Enter any video URL or local file path for transcription + analysis!")
+    print("Supports: YouTube, MP4, MOV, MP3, WAV, and more!")
     print()
     
-    # Get URL from user or command line
+    # Get input from user or command line
     if len(sys.argv) > 1:
-        url = sys.argv[1]
+        input_path = sys.argv[1]
     else:
-        url = input("📺 Enter video URL (YouTube, etc.): ").strip()
+        input_path = input("📺 Enter URL or file path: ").strip()
     
-    if not url:
-        print("❌ No URL provided")
+    if not input_path:
+        print("❌ No input provided")
         return
     
-    if not url.startswith(('http://', 'https://')):
-        url = 'https://' + url
-    
-    print(f"\n🚀 Processing: {url}")
-    
-    # Step 1: Download audio and get metadata
-    audio_file, metadata = download_audio(url)
+    print(f"\n🚀 Processing: {input_path}")
+
+    # Initialize progress tracking
+    audio_duration_minutes = None
+    start_transcription_progress(audio_duration_minutes)
+    print()  # Add space after progress bar initialization
+
+    # Step 1: Get audio file (from URL or local file)
+    audio_file, metadata, is_temp_file = get_audio_file(input_path)
     if not audio_file:
+        print("\n⚠️  Unable to process the input. Please check the URL or file path.")
+        input("\nPress Enter to continue...")
         return
+
+    # Update progress tracker with actual audio duration if available
+    if metadata and metadata.get('duration'):
+        duration_minutes = metadata['duration'] / 60.0
+        start_transcription_progress(duration_minutes)
     
     # Step 2: Ask for custom analysis preference
     print("\n" + "=" * 60)
@@ -406,13 +525,13 @@ def main():
         if transcript_text:
             if user_prompt:
                 # Custom analysis
-                print("\n🧠 GENERATING CUSTOM ANALYSIS...")
-                print("=" * 60)
+                start_step("analyze", "🧠 Generating custom analysis")
                 analysis_result = custom_analyzer.analyze_custom(
                     transcript_text,
                     user_prompt,
                     metadata.get('title', '')
                 )
+                complete_step("analyze")
                 
                 if analysis_result.get('success') and analysis_result.get('analysis'):
                     print(f"\nYour request: {user_prompt}")
@@ -422,21 +541,26 @@ def main():
                     print("Analysis generation failed. See saved files for transcript.")
             else:
                 # Standard analysis (backward compatible)
+                start_step("analyze", "🧠 Generating standard analysis")
                 analyze_text(transcript_text)
+                complete_step("analyze")
                 # Create a pseudo analysis_result for saving
                 analysis_result = {
                     'prompt': 'Standard analysis (summary, themes, sentiment)',
                     'analysis': 'Standard analysis was performed (see terminal output)',
                     'provider': 'Standard'
                 }
-        
+
         # Step 6: Save everything with proper formatting
-        print("\n💾 SAVING RESULTS...")
-        print("=" * 50)
+        start_step("save", "💾 Saving transcription files")
         video_dir = save_results(result, metadata, analysis_result)
+        complete_step("save")
         
-        print(f"\n🎉 Complete! Transcription and analysis finished.")
-        
+        # Complete progress tracking
+        finish_progress()
+
+        print(f"📁 Results saved to: {video_dir.name}")
+
         # Offer to open folder
         if input("\n📂 Open results folder? (y/n): ").strip().lower() == 'y':
             import subprocess
@@ -448,14 +572,20 @@ def main():
                 subprocess.run(["explorer", str(video_dir)])
             else:  # Linux
                 subprocess.run(["xdg-open", str(video_dir)])
+
+        # Give user time to review results before returning to main menu
+        input("\nPress Enter to return to main menu...")
     
     finally:
-        # Clean up temp file
+        # CRITICAL: Only clean up TEMPORARY files, never user's original files!
         try:
-            if os.path.exists(audio_file):
+            if is_temp_file and audio_file and os.path.exists(audio_file):
+                print(f"\n🧹 Cleaning up temporary file: {os.path.basename(audio_file)}")
                 os.unlink(audio_file)
-        except:
-            pass
+            elif not is_temp_file:
+                print(f"\n✅ Preserving original file: {os.path.basename(audio_file)}")
+        except Exception as e:
+            print(f"⚠️ Cleanup warning: {e}")
 
 if __name__ == "__main__":
     main()

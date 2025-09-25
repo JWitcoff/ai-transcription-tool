@@ -292,7 +292,28 @@ class ScribeClient:
         
         try:
             with open(path, 'rb') as audio_file:
-                files = {"file": audio_file}
+                # Include filename and MIME type for proper multipart upload
+                # This prevents "empty_file" errors from the API
+                filename = os.path.basename(path)
+                
+                # Detect MIME type based on file extension
+                ext = os.path.splitext(path)[1].lower()
+                mime_types = {
+                    '.mp3': 'audio/mpeg',
+                    '.wav': 'audio/wav',
+                    '.flac': 'audio/flac',
+                    '.m4a': 'audio/mp4',
+                    '.ogg': 'audio/ogg',
+                    '.opus': 'audio/opus',
+                    '.webm': 'audio/webm',
+                    '.mp4': 'video/mp4',
+                    '.avi': 'video/x-msvideo',
+                    '.mov': 'video/quicktime',
+                    '.mkv': 'video/x-matroska'
+                }
+                mime_type = mime_types.get(ext, 'application/octet-stream')
+                
+                files = {"file": (filename, audio_file, mime_type)}
                 response = self._make_request_with_retry(endpoint, data_payload=data_payload, 
                                                         files=files)
             
