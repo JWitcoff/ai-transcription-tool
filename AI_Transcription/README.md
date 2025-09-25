@@ -1,6 +1,8 @@
 # 🎬 AI Transcription Tool
 
-A powerful, all-in-one audio/video transcription tool powered by ElevenLabs Scribe and OpenAI Whisper with advanced speaker diarization (up to 32 speakers), real-time progress tracking, live transcription, and multiple export formats.
+A powerful, all-in-one audio/video transcription tool powered by ElevenLabs Scribe and OpenAI Whisper with clean architecture, advanced speaker diarization (up to 32 speakers), minimal UI, and multiple export formats.
+
+🏗️ **NEW in v2.0**: Clean architecture with provider pattern, centralized configuration, and modular design for better maintainability and extensibility.
 
 ## ✨ Features
 
@@ -484,6 +486,31 @@ The tool now shows real-time progress with dynamic ETA calculations:
 - 🔇 **Silent Processing**: Suppressed verbose model loading and upload logs
 - 📊 **Professional Summary**: Duration, speakers, confidence stats in single line
 - ✨ **Minimal Output**: Reduced from 50+ verbose lines to ~10 clean lines
+
+## 🏗️ Architecture (v2.0)
+
+**Clean Architecture Benefits:**
+- **Provider Pattern**: ElevenLabs and Whisper behind common interface
+- **Dependency Injection**: Configurable components with clean interfaces
+- **Error Hierarchy**: Standardized error handling across the system
+- **Configuration Layer**: Environment-based settings management
+- **Modular Design**: Each component has single responsibility
+
+**New Usage (Advanced):**
+```python
+from transcription import TranscriptionService
+from transcription.config import TranscriptionConfig
+
+# Configure from environment
+config = TranscriptionConfig.from_env()
+service = TranscriptionService()
+
+# Transcribe with automatic provider fallback
+result = service.transcribe("audio.wav")
+print(f"Transcribed by {result.provider}: {len(result.segments)} segments")
+```
+
+**Migration:** Existing CLI tools (`transcribe.py`, `app.py`) work unchanged. Deprecated files moved to `deprecated/` folder.
 
 **Optimization Tips:**
 1. **Model Selection**: Use smaller models for faster processing

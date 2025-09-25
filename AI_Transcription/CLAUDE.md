@@ -11,6 +11,7 @@ python quick_url_transcribe.py # Clean UI single-URL processing
 
 # Testing
 python test_clean_ui.py                                    # Test clean UI
+python test_new_architecture.py                            # Test new architecture (NEW!)
 python -c "from elevenlabs_scribe import ScribeClient; client = ScribeClient(); print('✅ ElevenLabs OK' if hasattr(client, 'api_key') and client.api_key else '❌ No API key')"
 
 # MCP Server
@@ -42,31 +43,37 @@ else:
 
 ## Architecture Summary (Context)
 
-**Primary Pipeline:** Audio Source → Transcription → Diarization → Analysis → Export
+**🏗️ NEW CLEAN ARCHITECTURE (v2.0):** Refactored with provider pattern and modular design
 
-**Key Components:**
-- **ElevenLabs Scribe** (primary): Premium accuracy, built-in diarization up to 32 speakers
-- **OpenAI Whisper** (fallback): Local processing with optional pyannote diarization
-- **Clean UI** (`clean_ui.py`): Minimal 3-stage progress display, reduces 50+ lines to ~10
-- **Enhanced Extraction** (`extractors/`): Content-aware analysis with rubric selection
-- **MCP Server**: Direct agent access via Model Context Protocol
+**Primary Pipeline:** Audio Source → TranscriptionService → Provider (ElevenLabs/Whisper) → Analysis → Export
+
+**Core Package Structure:**
+- **`transcription/`** - Main package with clean interfaces
+- **`transcription/providers/`** - ElevenLabs & Whisper with abstract base class
+- **`transcription/config/`** - Centralized configuration management
+- **`transcription/errors/`** - Standardized error hierarchy
+- **`transcription/ui/`** - Clean UI components
+- **`transcription/core/`** - TranscriptionService with automatic fallback
 
 **Entry Points:**
-1. `transcribe.py` - Interactive CLI menu (9 modes)
-2. `quick_url_transcribe.py` - Clean UI single-URL processing ⭐
-3. `app.py` - Streamlit web interface
-4. `mcp_transcription_server.py` - MCP server for AI agents
+1. `transcribe.py` - Interactive CLI menu (9 modes) - **UNCHANGED**
+2. `quick_url_transcribe.py` - Clean UI single-URL processing ⭐ - **UNCHANGED**
+3. `app.py` - Streamlit web interface - **UNCHANGED**
+4. `mcp_transcription_server.py` - MCP server for AI agents - **UNCHANGED**
+
+**Deprecated Files:** Moved to `deprecated/` folder with migration guide
 
 ## Quality Gates (Important)
 
 ```bash
 # Essential validation
+python test_new_architecture.py                            # New architecture (6 tests)
 python test_clean_ui.py                                    # UI functionality
-python -c "from extractors.contracts import validate_with_repair; print('✅')"  # Contract system
-python -c "from extractors.truthful_telemetry import get_global_collector; print('✅')"  # Telemetry
+python -c "from transcription import TranscriptionService; print('✅ Architecture OK')"
 
 # System health
 python -c "import whisper, torch; print(f'Whisper+PyTorch: ✅')"
+python -c "from transcription.providers import ElevenLabsProvider; print('✅ ElevenLabs' if ElevenLabsProvider().is_available() else '❌ No API key')"
 ```
 
 ## Environment Setup
