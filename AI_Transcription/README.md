@@ -123,7 +123,8 @@ python transcribe.py
 python quick_url_transcribe.py
 ```
 1. Enter your YouTube URL
-2. Watch the **clean progress display** with real-time ETA:
+2. Choose your analysis preference (standard or custom prompt) - **NEW in v2.1**
+3. Watch the **clean progress display** with real-time ETA:
 ```
 🎬 QUICK TRANSCRIPTION
 Input: https://youtube.com/watch?v=example123
@@ -137,14 +138,14 @@ Using transcription model: ElevenLabs Scribe ✅
 Duration: 5m 32s | Speakers: 2 | Confidence: 94.3%
 Saved 6 output files to: /Users/user/transcripts/example
 ```
-3. Get complete transcription + speaker identification + AI analysis
-4. Find results in the `transcripts/` folder
+4. Get complete transcription + speaker identification + AI analysis
+5. Find results in the `transcripts/` folder
 
 **Or via the main menu:**
 1. Run `python transcribe.py`
 2. Choose option 2 (Quick URL Transcription)
 3. Enter your YouTube URL
-4. Choose custom analysis prompt or use defaults
+4. Select analysis type upfront (before transcription starts)
 5. Watch the clean UI guide you through each step
 
 ### Example: Live Transcription
