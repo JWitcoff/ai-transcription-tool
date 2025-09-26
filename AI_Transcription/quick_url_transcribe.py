@@ -365,10 +365,7 @@ def main():
             print("\n❌ Unable to process the input. Please check the URL or file path.")
             return
 
-        # Step 2: Transcribe audio
-        transcript_data = transcribe_audio(audio_file)
-
-        # Get analysis preference (simplified)
+        # Step 2: Get analysis preference BEFORE transcription (improved user flow)
         print("\n" + "=" * 60)
         print("📝 ANALYSIS OPTIONS")
         print("=" * 60)
@@ -377,7 +374,10 @@ def main():
 
         user_prompt = input("\nYour choice (or Enter to skip): ").strip()
 
-        # Step 3: Analyze if requested
+        # Step 3: Transcribe audio
+        transcript_data = transcribe_audio(audio_file)
+
+        # Step 4: Analyze if requested
         analysis_result = None
         if user_prompt:
             analysis_result = analyze_transcript(
@@ -385,7 +385,7 @@ def main():
                 user_prompt if user_prompt else None
             )
 
-        # Step 4: Save results
+        # Step 5: Save results
         output_dir, file_count = save_results(transcript_data, metadata, analysis_result)
 
         # Calculate duration and stats

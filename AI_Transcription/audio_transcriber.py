@@ -10,6 +10,12 @@ import json
 from pathlib import Path
 from typing import Optional, Dict, List
 from datetime import timedelta
+import warnings
+
+# Suppress torchaudio deprecation warnings that clutter clean UI
+warnings.filterwarnings("ignore", message=".*torchaudio._extension.*", category=UserWarning)
+warnings.filterwarnings("ignore", message=".*torch.load.*", category=UserWarning)
+
 try:
     from pyannote.audio import Pipeline
     DIARIZATION_AVAILABLE = True

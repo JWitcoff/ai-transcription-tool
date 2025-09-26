@@ -30,7 +30,7 @@ class OutputFormatter:
         
         # Format body based on whether we have diarization
         if result.get("has_diarization") and result.get("segments"):
-            body = self._format_diarized_transcript(result["segments"])
+            body = self.format_diarized_transcript(result["segments"])
         else:
             body = self._format_non_diarized_transcript(
                 result.get("text", ""),
@@ -64,7 +64,7 @@ class OutputFormatter:
         
         return "\n".join(header_lines) + "\n"
     
-    def _format_diarized_transcript(self, segments: List[Dict]) -> str:
+    def format_diarized_transcript(self, segments: List[Dict]) -> str:
         """Format transcript with speaker labels"""
         formatted_lines = []
         current_speaker = None

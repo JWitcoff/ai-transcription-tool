@@ -4,6 +4,8 @@ A powerful, all-in-one audio/video transcription tool powered by ElevenLabs Scri
 
 🏗️ **NEW in v2.0**: Clean architecture with provider pattern, centralized configuration, and modular design for better maintainability and extensibility.
 
+🎯 **v2.1 Improvements**: Enhanced user flow with upfront analysis selection, fixed speaker formatting, and suppressed deprecation warnings for cleaner UI.
+
 ## ✨ Features
 
 - 🤖 **MCP Server**: Direct agent access via Model Context Protocol (NEW!)

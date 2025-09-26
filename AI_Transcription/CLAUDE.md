@@ -40,6 +40,9 @@ else:
 - Use `OutputSuppressor` context manager for silent operations
 - Show model selection: ElevenLabs ✅ or Whisper ⚠️
 - 3 stages only: `transcribe` → `analyze` → `complete`
+- **User Flow (v2.1):** Analysis preferences collected BEFORE transcription begins
+- **Method Fix:** `format_diarized_transcript()` is now public (no underscore)
+- **Warning Suppression:** torchaudio deprecation warnings filtered in imports
 
 ## Architecture Summary (Context)
 
