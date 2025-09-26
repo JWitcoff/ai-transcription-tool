@@ -10,6 +10,9 @@ from typing import Dict, List, Optional, Any
 # Suppress torchaudio deprecation warnings that clutter clean UI
 warnings.filterwarnings("ignore", message=".*torchaudio._extension.*", category=UserWarning)
 warnings.filterwarnings("ignore", message=".*torch.load.*", category=UserWarning)
+warnings.filterwarnings("ignore", message=".*torchaudio._backend.*", category=UserWarning)
+warnings.filterwarnings("ignore", message=".*list_audio_backends.*", category=UserWarning)
+warnings.filterwarnings("ignore", message=".*TorchAudio.*maintenance phase.*", category=UserWarning)
 
 from .base import TranscriptionProvider, TranscriptionResult, TranscriptionSegment
 from ..errors import APIError, ConfigurationError, ValidationError

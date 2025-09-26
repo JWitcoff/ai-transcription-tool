@@ -4,6 +4,12 @@ Quick URL Transcription - Clean UI Version
 Enter a URL, get complete transcription + analysis with minimal terminal output
 """
 
+import warnings
+# Suppress torchaudio deprecation warnings early, before any imports
+warnings.filterwarnings("ignore", message=".*torchaudio._backend.*", category=UserWarning)
+warnings.filterwarnings("ignore", message=".*list_audio_backends.*", category=UserWarning)
+warnings.filterwarnings("ignore", message=".*TorchAudio.*maintenance phase.*", category=UserWarning)
+
 import sys
 import os
 from pathlib import Path

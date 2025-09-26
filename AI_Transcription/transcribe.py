@@ -4,6 +4,12 @@ AI Transcription Tool - Unified Entry Point
 A comprehensive tool for audio/video transcription with multiple modes
 """
 
+import warnings
+# Suppress torchaudio deprecation warnings early, before any imports
+warnings.filterwarnings("ignore", message=".*torchaudio._backend.*", category=UserWarning)
+warnings.filterwarnings("ignore", message=".*list_audio_backends.*", category=UserWarning)
+warnings.filterwarnings("ignore", message=".*TorchAudio.*maintenance phase.*", category=UserWarning)
+
 import sys
 import os
 import subprocess
