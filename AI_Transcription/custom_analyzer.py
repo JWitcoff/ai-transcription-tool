@@ -485,18 +485,26 @@ Format as a comprehensive answer with:
         # Build fact context
         fact_context = self._build_fact_context(validated_facts)
 
-        # Create constrained system message
-        system_message = """You are a fact-based analyst. You must ONLY use information explicitly provided in the transcript and fact summary.
+        # Create constrained system message for two-part analysis
+        system_message = """You are a fact-based analyst. Generate a two-part analysis in this EXACT format:
+
+**SUMMARY**
+[3-6 sentences of narrative prose with concrete facts - dates, metrics, names, or quotes. Write chronologically or by importance. No bullet points.]
+
+**ANALYSIS**
+- Events: [event names only, comma-separated]
+- Metrics: [numbers with brief context, comma-separated]
+- Production: [technical/manufacturing details, comma-separated]
+- Community: [audience/social elements, comma-separated]
+[Only include categories that have data]
 
 CRITICAL RULES:
-1. NEVER invent or speculate about information not in the transcript
-2. ONLY reference facts, quotes, and data points that are explicitly provided
-3. If information is missing, say "not mentioned in transcript" rather than guessing
-4. Quote directly from the source material when making claims
-5. Focus on extractive analysis rather than generative interpretation
-6. Mark any inference clearly as "based on context" vs "explicitly stated"
-
-Your goal is to provide accurate, grounded analysis based solely on the provided content."""
+1. NEVER invent information not in the transcript
+2. SUMMARY must be narrative prose, not bullet lists
+3. ANALYSIS must be structured categories with comma-separated items
+4. Include at least 3 concrete facts in the SUMMARY
+5. Deduplicate similar entities (e.g., "Comic Con 2025" = "CommaCon 2025")
+6. Remove "Missing Information" - only include what IS present"""
 
         # Build context with video title if available
         context_parts = []
@@ -514,11 +522,11 @@ Your goal is to provide accurate, grounded analysis based solely on the provided
 
         context_parts.append("\n=== INSTRUCTIONS ===")
         context_parts.append("""Base your analysis ONLY on the facts and transcript provided above.
-Structure your response with:
-- Clear headers and bullet points
-- Direct quotes from transcript when relevant
-- Distinction between explicit facts vs contextual inferences
-- "Not mentioned" for missing information rather than speculation""")
+Generate the two-part format:
+- SUMMARY: 3-6 sentence narrative with concrete facts
+- ANALYSIS: Structured categories with comma-separated items
+- No bullet lists in SUMMARY, no "Missing Information" sections
+- Focus on what IS present, not what's absent""")
 
         full_context = "\n".join(context_parts)
 
@@ -617,75 +625,44 @@ Please provide a comprehensive response with:
         # Parse the user prompt to determine what they want
         prompt_lower = user_prompt.lower()
 
-        # Build response based on keywords in prompt
-        analysis_parts = []
-        analysis_parts.append(f"FACT-GROUNDED ANALYSIS: {user_prompt}")
-        analysis_parts.append("=" * 50)
+        # Generate two-part analysis format for local analysis
 
-        # Check for common request types and use factual data
-        if any(word in prompt_lower for word in ['summary', 'summarize', 'overview']):
-            # Use extractive summary to prevent hallucinations
-            summary = extract_grounded_summary(transcript, max_sentences=5)
-            analysis_parts.append(f"\nEXTRACTIVE SUMMARY:\n{summary}")
+        # Generate narrative summary
+        summary = extract_grounded_summary(transcript, max_sentences=4)
 
-        if any(word in prompt_lower for word in ['theme', 'topic', 'subject']):
-            if themes:
-                analysis_parts.append("\nFACT-BASED THEMES:")
-                for i, theme in enumerate(themes[:5], 1):
-                    title = theme.get('title', f'Theme {i}')
-                    description = theme.get('description', 'No description')
-                    evidence_count = theme.get('evidence_count', 0)
-                    analysis_parts.append(f"{i}. {title}")
-                    analysis_parts.append(f"   {description}")
-                    if evidence_count > 0:
-                        analysis_parts.append(f"   (Based on {evidence_count} factual references)")
-            else:
-                analysis_parts.append("\nNo clear factual themes identified in transcript.")
+        # Generate structured analysis from facts
+        analysis_categories = []
 
-        if any(word in prompt_lower for word in ['fact', 'data', 'metric', 'number']):
-            # Show extracted facts
-            self._add_fact_summary(analysis_parts, validated_facts)
+        # Add events
+        events = validated_facts.get('dates_and_events', [])
+        if events:
+            event_names = [e.content for e in events[:5] if hasattr(e, 'content')]
+            if event_names:
+                analysis_categories.append(f"- Events: {', '.join(event_names)}")
 
-        if any(word in prompt_lower for word in ['quote', 'said', 'statement']):
-            quotes = validated_facts.get('quotes', [])
-            if quotes:
-                memorable_quotes = [q for q in quotes if q.is_memorable][:3]
-                analysis_parts.append("\nKEY QUOTES:")
-                for quote in memorable_quotes:
-                    speaker = f" ({quote.speaker})" if quote.speaker else ""
-                    analysis_parts.append(f'• "{quote.text}"{speaker}')
-            else:
-                analysis_parts.append("\nNo clear quotes extracted from transcript.")
+        # Add metrics
+        metrics = validated_facts.get('metrics_and_numbers', [])
+        if metrics:
+            metric_items = []
+            for m in metrics[:5]:
+                if hasattr(m, 'content') and hasattr(m, 'context'):
+                    context_short = m.context[:30] + "..." if len(m.context) > 30 else m.context
+                    metric_items.append(f"{m.content} ({context_short})")
+            if metric_items:
+                analysis_categories.append(f"- Metrics: {', '.join(metric_items)}")
 
-        if any(word in prompt_lower for word in ['sentiment', 'emotion', 'feeling', 'mood']):
-            sentiment = local_analyzer.analyze_sentiment(transcript)
-            sentiment_text = f"\nSENTIMENT ANALYSIS:\n{sentiment.get('label', 'Unknown')} "
-            sentiment_text += f"(confidence: {sentiment.get('confidence', 0):.1%})"
-            analysis_parts.append(sentiment_text)
+        # Add entities
+        entities = validated_facts.get('companies_and_entities', [])
+        if entities:
+            entity_names = [e.content for e in entities[:5] if hasattr(e, 'content')]
+            if entity_names:
+                analysis_categories.append(f"- Entities: {', '.join(entity_names)}")
 
-        # If no specific keywords matched, provide a comprehensive analysis
-        if len(analysis_parts) <= 2:  # Only header added
-            analysis_parts.append("\nCOMPREHENSIVE FACTUAL ANALYSIS:")
+        # Build final two-part format
+        analysis_parts = [f"**SUMMARY**\n{summary}"]
 
-            # Add extractive summary
-            summary = extract_grounded_summary(transcript, max_sentences=4)
-            analysis_parts.append(f"\nSummary: {summary}")
-
-            # Add fact summary
-            self._add_fact_summary(analysis_parts, validated_facts)
-
-            # Add themes if available
-            if themes:
-                analysis_parts.append("\nMain Topics:")
-                for theme in themes[:3]:
-                    analysis_parts.append(f"• {theme.get('title', 'Topic')}")
-
-        # Add validation summary
-        validation_summary = fact_analysis.get('validation_summary', {})
-        total_facts = validation_summary.get('total_facts_extracted', 0)
-        confidence = fact_analysis.get('confidence_score', 0.0)
-
-        analysis_parts.append(f"\n[Analysis based on {total_facts} validated facts, confidence: {confidence:.1%}]")
+        if analysis_categories:
+            analysis_parts.append(f"\n**ANALYSIS**\n" + "\n".join(analysis_categories))
 
         return {
             "success": True,

@@ -90,6 +90,7 @@ def process_local_file(file_path: str) -> tuple:
 
     return audio_file, metadata, is_temp_file
 
+
 def download_audio(url: str) -> tuple:
     """Download audio from URL and return temp file path with metadata"""
     # Create temp file
@@ -97,6 +98,7 @@ def download_audio(url: str) -> tuple:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     temp_audio = os.path.join(temp_dir, f"transcribe_audio_{timestamp}")
 
+    # Simple working yt-dlp configuration (restored from commit c816422)
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': temp_audio + '.%(ext)s',
@@ -105,12 +107,14 @@ def download_audio(url: str) -> tuple:
             'preferredcodec': 'wav',
             'preferredquality': '192',
         }],
-        'quiet': True,
-        'no_warnings': True,
+        'quiet': True,  # Suppress output for clean UI
+        'no_warnings': True,  # Suppress warnings
+        'noplaylist': True,  # Only download single video, ignore playlist parameters
     }
 
     try:
-        with OutputSuppressor():
+        print("\n⏬ Downloading audio...")
+        with OutputSuppressor():  # Suppress yt-dlp output for clean UI
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 title = info.get('title', 'Unknown')
@@ -126,14 +130,181 @@ def download_audio(url: str) -> tuple:
                         'url': url
                     }
 
+                    print(f"✅ Audio downloaded: {title[:50]}...")
                     # Downloaded files are always temporary and safe to delete
                     return str(file), metadata, True
 
         raise Exception("Audio file not found after download")
 
-    except Exception as e:
-        print(f"\n❌ Failed to download: {str(e)[:80]}")
+    except yt_dlp.utils.DownloadError as e:
+        error_msg = str(e)
+        if 'live event will begin' in error_msg.lower():
+            print("\n❌ This live stream hasn't started yet or has ended")
+        elif 'private' in error_msg.lower():
+            print("\n❌ This video is private or restricted")
+        elif 'members-only' in error_msg.lower():
+            print("\n❌ This content is members-only")
+        elif 'sign in to confirm' in error_msg.lower() or 'bot' in error_msg.lower():
+            print("\n❌ YouTube authentication required")
+            print("💡 This video requires sign-in to confirm you're not a bot.")
+            print("   Solutions:")
+            print("   1. Make sure you're logged into Chrome browser")
+            print("   2. Try accessing the video in Chrome first")
+            print("   3. If the issue persists, try a different browser (Firefox/Safari)")
+        elif '403' in error_msg or 'forbidden' in error_msg.lower():
+            print("\n❌ Access forbidden (403 error)")
+            print("💡 YouTube is blocking access. Try:")
+            print("   1. Make sure you're logged into your browser")
+            print("   2. Access the video in Chrome browser first")
+            print("   3. Wait a few minutes and try again")
+            print("   4. Check if the video is region-restricted")
+        elif 'playlist' in error_msg.lower():
+            print("\n❌ Playlist handling issue")
+            print("💡 Try using the direct video URL without playlist parameters")
+        else:
+            print(f"\n❌ Download failed: {error_msg[:100]}")
+            print("💡 Common solutions:")
+            print("   - Check if the URL is valid and accessible")
+            print("   - Try a different video if this one is restricted")
         return None, None, False
+
+    except Exception as e:
+        print(f"\n❌ Failed to download: {str(e)[:100]}")
+        print("💡 Tip: Make sure the URL is valid and the content is accessible")
+        return None, None, False
+
+def _merge_phantom_speakers(transcript_data: dict, min_duration: float = 5.0, min_confidence: float = 0.7) -> dict:
+    """
+    Fix phantom speakers by merging short segments and enforcing realistic speaker counts
+
+    Args:
+        transcript_data: Transcript dictionary with segments
+        min_duration: Minimum duration (seconds) for a speaker to be considered real
+        min_confidence: Minimum confidence threshold (not used yet, for future)
+
+    Returns:
+        Cleaned transcript_data with phantom speakers merged
+    """
+    if not isinstance(transcript_data, dict) or 'segments' not in transcript_data:
+        return transcript_data
+
+    segments = transcript_data['segments']
+    if not segments:
+        return transcript_data
+
+    # Step 1: Analyze speaker patterns
+    speaker_stats = {}
+    for segment in segments:
+        if not isinstance(segment, dict):
+            continue
+
+        speaker = segment.get('speaker', 'Speaker 1')
+        duration = segment.get('end', 0) - segment.get('start', 0)
+
+        if speaker not in speaker_stats:
+            speaker_stats[speaker] = {
+                'total_duration': 0,
+                'segment_count': 0,
+                'first_appearance': segment.get('start', 0)
+            }
+
+        speaker_stats[speaker]['total_duration'] += duration
+        speaker_stats[speaker]['segment_count'] += 1
+
+    # Step 2: Identify phantom speakers (very short total duration)
+    real_speakers = []
+    phantom_speakers = []
+
+    for speaker, stats in speaker_stats.items():
+        if stats['total_duration'] >= min_duration and stats['segment_count'] >= 2:
+            real_speakers.append(speaker)
+        else:
+            phantom_speakers.append(speaker)
+
+    # Step 3: If we have too many speakers for a short content, limit to 2
+    total_duration = max(seg.get('end', 0) for seg in segments) if segments else 0
+
+    if total_duration < 300 and len(real_speakers) > 2:  # Less than 5 minutes, max 2 speakers
+        # Keep only the two speakers with most speaking time
+        speaker_durations = [(speaker, speaker_stats[speaker]['total_duration']) for speaker in real_speakers]
+        speaker_durations.sort(key=lambda x: x[1], reverse=True)
+        real_speakers = [speaker_durations[0][0], speaker_durations[1][0]]
+        phantom_speakers.extend([s[0] for s in speaker_durations[2:]])
+
+    # Step 4: Create speaker mapping (phantom -> real)
+    speaker_mapping = {}
+
+    # Map phantom speakers to nearest real speaker
+    for phantom in phantom_speakers:
+        phantom_first_time = speaker_stats[phantom]['first_appearance']
+
+        # Find the closest real speaker by timing
+        closest_speaker = real_speakers[0] if real_speakers else 'Speaker 1'
+        min_time_diff = float('inf')
+
+        for real_speaker in real_speakers:
+            real_first_time = speaker_stats[real_speaker]['first_appearance']
+            time_diff = abs(phantom_first_time - real_first_time)
+            if time_diff < min_time_diff:
+                min_time_diff = time_diff
+                closest_speaker = real_speaker
+
+        speaker_mapping[phantom] = closest_speaker
+
+    # Step 5: Apply mapping to segments
+    cleaned_segments = []
+    for segment in segments:
+        if not isinstance(segment, dict):
+            continue
+
+        segment_copy = segment.copy()
+        original_speaker = segment_copy.get('speaker', 'Speaker 1')
+
+        if original_speaker in speaker_mapping:
+            segment_copy['speaker'] = speaker_mapping[original_speaker]
+
+        cleaned_segments.append(segment_copy)
+
+    # Step 6: Merge adjacent segments with same speaker
+    merged_segments = []
+    current_segment = None
+
+    for segment in cleaned_segments:
+        if current_segment is None:
+            current_segment = segment.copy()
+        else:
+            # Check if we can merge with current segment
+            current_speaker = current_segment.get('speaker', 'Speaker 1')
+            segment_speaker = segment.get('speaker', 'Speaker 1')
+            current_end = current_segment.get('end', 0)
+            segment_start = segment.get('start', 0)
+
+            # Merge if same speaker and segments are close (within 2 seconds)
+            if current_speaker == segment_speaker and (segment_start - current_end) <= 2.0:
+                # Merge text with space
+                current_text = current_segment.get('text', '').strip()
+                segment_text = segment.get('text', '').strip()
+                current_segment['text'] = f"{current_text} {segment_text}".strip()
+                current_segment['end'] = segment.get('end', current_end)
+            else:
+                # Different speaker or too far apart, save current and start new
+                merged_segments.append(current_segment)
+                current_segment = segment.copy()
+
+    # Add the last segment
+    if current_segment is not None:
+        merged_segments.append(current_segment)
+
+    # Update transcript data
+    transcript_data_copy = transcript_data.copy()
+    transcript_data_copy['segments'] = merged_segments
+
+    # Update speaker count metadata if it exists
+    if 'speaker_count' in transcript_data_copy:
+        actual_speakers = set(seg.get('speaker', 'Speaker 1') for seg in merged_segments)
+        transcript_data_copy['speaker_count'] = len(actual_speakers)
+
+    return transcript_data_copy
 
 def get_audio_file(input_path: str) -> tuple:
     """Get audio from URL or local file path"""
@@ -164,28 +335,40 @@ def transcribe_audio(audio_file: str) -> dict:
 
     if use_scribe:
         try:
-            # Try ElevenLabs Scribe silently
-            with OutputSuppressor():
-                transcriber = AudioTranscriber(
-                    model_size='base',  # Used as fallback
-                    enable_diarization=True,
-                    diarization_provider='elevenlabs'
-                )
+            # Try ElevenLabs Scribe with minimal output
+            transcriber = AudioTranscriber(
+                model_size='base',  # Used as fallback
+                enable_diarization=True,
+                diarization_provider='elevenlabs'
+            )
 
             # Check if Scribe loaded successfully
             if transcriber.diarization_provider == 'elevenlabs':
                 model_used = 'ElevenLabs Scribe'
                 show_model(model_used, success=True)
 
-                # Transcribe silently
-                with OutputSuppressor():
-                    result = transcriber.transcribe_from_file(audio_file, include_timestamps=True)
+                # Transcribe with progress indication
+                print("\n🎙️ Transcribing with ElevenLabs Scribe...")
+                result = transcriber.transcribe_from_file(audio_file, include_timestamps=True)
 
-                if result and result.get('text'):
-                    return result
-                # Else fall through to Whisper
-        except Exception:
-            # Silently fall back to Whisper
+                # Handle both string and dict responses
+                if result:
+                    if isinstance(result, str):
+                        # ElevenLabs returned raw text, convert to dict format
+                        result = {
+                            'text': result,
+                            'provider': 'elevenlabs',
+                            'has_diarization': False,
+                            'segments': []
+                        }
+
+                    if isinstance(result, dict) and result.get('text'):
+                        return result
+
+                print("⚠️ ElevenLabs returned no text, falling back to Whisper...")
+        except Exception as e:
+            # Show error and fall back to Whisper
+            print(f"⚠️ ElevenLabs unavailable: {str(e)[:50]}, using Whisper...")
             pass
 
     # Fallback to Whisper
@@ -211,49 +394,7 @@ def transcribe_audio(audio_file: str) -> dict:
             print(f"\n❌ Transcription failed: {str(e)[:80]}")
             sys.exit(1)
 
-def analyze_transcript(transcript: str, custom_prompt: str = None) -> dict:
-    """Analyze transcript with AI"""
-    # Update status to analysis stage
-    update_status('analyze')
-
-    # Use OpenAI if available, otherwise local
-    openai_analyzer = OpenAIAnalyzer()
-
-    if openai_analyzer.client:
-        # Using OpenAI for analysis
-        if custom_prompt:
-            custom_analyzer = CustomAnalyzer()
-            result = custom_analyzer.analyze_custom(transcript, custom_prompt, "")
-            return result.get('analysis', "Analysis failed")
-        else:
-            summary = openai_analyzer.summarize(transcript)
-            themes = openai_analyzer.extract_themes(transcript, num_themes=3)
-            sentiment = openai_analyzer.analyze_sentiment(transcript)
-
-            return {
-                'summary': summary,
-                'themes': themes,
-                'sentiment': sentiment
-            }
-    else:
-        # Using local models
-        analyzer = TextAnalyzer()
-
-        if custom_prompt:
-            # Basic local custom analysis
-            return f"Local analysis: {custom_prompt}\n\nSummary: {analyzer.summarize(transcript, max_length=150)}"
-        else:
-            summary = analyzer.summarize(transcript, max_length=150)
-            themes = analyzer.extract_themes(transcript, num_themes=3)
-            sentiment = analyzer.analyze_sentiment(transcript)
-
-            return {
-                'summary': summary,
-                'themes': themes,
-                'sentiment': sentiment
-            }
-
-def save_results(transcript_data: dict, metadata: dict, custom_analysis: str = None) -> Path:
+def save_results(transcript_data, metadata: dict, custom_analysis = None) -> Path:
     """Save all results to organized folder structure"""
     # Create output directory based on timestamp and title
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -269,12 +410,20 @@ def save_results(transcript_data: dict, metadata: dict, custom_analysis: str = N
     # Save transcript
     transcript_file = video_dir / "transcript.txt"
     formatter = OutputFormatter()
-    formatted_transcript = formatter.format_diarized_transcript(transcript_data)
+
+    # Handle both string and dict transcript formats
+    if isinstance(transcript_data, str):
+        # Raw text - save directly
+        formatted_transcript = f"# {metadata.get('title', 'Transcript')}\n\n{transcript_data}"
+    else:
+        # Dict format - use formatter
+        formatted_transcript = formatter.format_transcript(transcript_data, metadata.get('url', ''))
+
     with open(transcript_file, 'w', encoding='utf-8') as f:
         f.write(formatted_transcript)
     file_count += 1
 
-    # Save analysis if provided
+    # Save analysis if provided (now in two-part format)
     if custom_analysis:
         analysis_file = video_dir / "analysis.txt"
         with open(analysis_file, 'w', encoding='utf-8') as f:
@@ -282,15 +431,26 @@ def save_results(transcript_data: dict, metadata: dict, custom_analysis: str = N
             f.write("ANALYSIS\n")
             f.write("=" * 70 + "\n")
             f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-            if isinstance(custom_analysis, dict):
-                # Standard analysis
-                f.write(f"SUMMARY:\n{custom_analysis.get('summary', 'N/A')}\n\n")
-                f.write("THEMES:\n")
-                for theme in custom_analysis.get('themes', []):
-                    f.write(f"- {theme.get('title', 'Theme')}: {theme.get('description', '')}\n")
-                f.write(f"\nSENTIMENT: {custom_analysis.get('sentiment', {}).get('label', 'Unknown')}\n")
+
+            # Handle new two-part format or legacy formats
+            if isinstance(custom_analysis, str):
+                # New two-part format: **SUMMARY**\n...\n\n**ANALYSIS**\n...
+                f.write(custom_analysis)
+            elif isinstance(custom_analysis, dict):
+                # Legacy format - convert to new format
+                summary = custom_analysis.get('summary', 'No summary available')
+                themes = custom_analysis.get('themes', '')
+                sentiment = custom_analysis.get('sentiment', '')
+
+                f.write(f"**SUMMARY**\n{summary}\n\n")
+                if themes or sentiment:
+                    f.write("**ANALYSIS**\n")
+                    if themes:
+                        f.write(f"- Themes: {themes}\n")
+                    if sentiment:
+                        f.write(f"- Sentiment: {sentiment}\n")
             else:
-                # Custom analysis
+                # Fallback for any other format
                 f.write(str(custom_analysis))
         file_count += 1
 
@@ -311,15 +471,15 @@ def save_results(transcript_data: dict, metadata: dict, custom_analysis: str = N
         json.dump(transcript_data, f, indent=2, ensure_ascii=False)
     file_count += 1
 
-    # Save SRT if segments available
-    if 'segments' in transcript_data and transcript_data['segments']:
+    # Save SRT if segments available (with type safety)
+    if isinstance(transcript_data, dict) and 'segments' in transcript_data and transcript_data['segments']:
         try:
             segments = [CaptionSegment(
                 start=seg.get('start', 0),
                 end=seg.get('end', 0),
                 text=seg.get('text', ''),
                 speaker=seg.get('speaker')
-            ) for seg in transcript_data['segments']]
+            ) for seg in transcript_data['segments'] if isinstance(seg, dict)]
 
             srt_content = segments_to_srt(segments)
             srt_file = video_dir / "captions.srt"
@@ -343,16 +503,21 @@ def save_results(transcript_data: dict, metadata: dict, custom_analysis: str = N
 
     return video_dir, file_count
 
-def main():
-    """Main execution function with clean UI"""
-    # Get input from user or command line
-    if len(sys.argv) > 1:
-        input_path = sys.argv[1]
-    else:
-        # Simple prompt without clearing screen
-        print("🎬 QUICK TRANSCRIPTION")
-        print("Enter any video URL or local file path for transcription + analysis!")
-        input_path = input("📺 Enter URL or file path: ").strip()
+def main(input_path=None):
+    """Main execution function with clean UI
+
+    Args:
+        input_path: Optional URL or file path. If not provided, will prompt user.
+    """
+    # Get input from user, parameter, or command line
+    if input_path is None:
+        if len(sys.argv) > 1:
+            input_path = sys.argv[1]
+        else:
+            # Simple prompt without clearing screen
+            print("🎬 QUICK TRANSCRIPTION")
+            print("Enter any video URL or local file path for transcription + analysis!")
+            input_path = input("📺 Enter URL or file path: ").strip()
 
     if not input_path:
         print("❌ No input provided")
@@ -369,6 +534,10 @@ def main():
         audio_file, metadata, is_temp_file = get_audio_file(input_path)
         if not audio_file:
             print("\n❌ Unable to process the input. Please check the URL or file path.")
+            print("💡 Common issues:")
+            print("  - URL might be invalid or restricted")
+            print("  - Live stream might not be available")
+            print("  - File path might not exist")
             return
 
         # Step 2: Get analysis preference BEFORE transcription (improved user flow)
@@ -378,18 +547,41 @@ def main():
         print("\n1. Press Enter for standard analysis")
         print("2. Type a custom question about the content")
 
-        user_prompt = input("\nYour choice (or Enter to skip): ").strip()
+        user_prompt = input("\nYour choice (or Enter for standard): ").strip()
 
         # Step 3: Transcribe audio
         transcript_data = transcribe_audio(audio_file)
 
-        # Step 4: Analyze if requested
+        # Check if transcription failed and returned a string error
+        if isinstance(transcript_data, str):
+            print(f"❌ Transcription failed: {transcript_data}")
+            return
+
+        # Ensure we have a valid dictionary result
+        if not isinstance(transcript_data, dict) or not transcript_data.get('text'):
+            print("❌ Error: Invalid transcription result")
+            return
+
+        # Step 3.5: Fix phantom speakers (Critical for accuracy)
+        transcript_data = _merge_phantom_speakers(transcript_data)
+
+        # Step 4: Always analyze using new two-part format
         analysis_result = None
+        # Extract text from validated dict
+        transcript_text = transcript_data.get('text', '')
+
         if user_prompt:
-            analysis_result = analyze_transcript(
-                transcript_data.get('text', ''),
-                user_prompt if user_prompt else None
-            )
+            # Custom analysis with user's prompt
+            custom_analyzer = CustomAnalyzer()
+            result = custom_analyzer.analyze_custom(transcript_text, user_prompt, "")
+            if isinstance(result, dict):
+                analysis_result = result.get('analysis', "Analysis failed")
+            else:
+                analysis_result = str(result)
+        else:
+            # Standard analysis using new unified format
+            analyzer = TextAnalyzer()
+            analysis_result = analyzer.summarize(transcript_text)  # Now returns two-part format
 
         # Step 5: Save results
         output_dir, file_count = save_results(transcript_data, metadata, analysis_result)
@@ -399,15 +591,18 @@ def main():
         duration = metadata.get('duration', 0)
         duration_str = format_duration(duration) if duration else "Unknown"
 
-        # Count speakers
+        # Count speakers (with type safety)
         speaker_count = 0
-        if 'segments' in transcript_data:
+        if isinstance(transcript_data, dict) and 'segments' in transcript_data:
             unique_speakers = set(seg.get('speaker') for seg in transcript_data['segments']
-                                if seg.get('speaker'))
+                                if isinstance(seg, dict) and seg.get('speaker'))
             speaker_count = len(unique_speakers) if unique_speakers else 1
 
-        # Estimate confidence (simplified)
-        confidence = 0.95 if 'elevenlabs' in str(transcript_data.get('provider', '')).lower() else 0.85
+        # Estimate confidence (with type safety)
+        confidence = 0.85  # Default
+        if isinstance(transcript_data, dict):
+            provider = transcript_data.get('provider', '')
+            confidence = 0.95 if 'elevenlabs' in str(provider).lower() else 0.85
 
         # Complete with stats
         complete_with_stats(

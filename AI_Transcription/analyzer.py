@@ -25,7 +25,7 @@ class TextAnalyzer:
         
     def summarize(self, text: str, max_length: int = 150, min_length: int = 30) -> str:
         """
-        Generate a factually grounded summary using extractive approach
+        Generate a narrative summary with structured analysis in two-part format
 
         Args:
             text: Input text to summarize
@@ -33,32 +33,207 @@ class TextAnalyzer:
             min_length: Minimum length of summary (converted to sentence count)
 
         Returns:
-            Extractive summary string that prevents hallucinations
+            Two-part summary: SUMMARY (narrative) + ANALYSIS (structured)
         """
         if not text.strip():
             return "No text provided for summarization."
 
-        if self.use_extractive_summary:
+        try:
+            # Extract facts first for grounding
+            fact_analysis = self.fact_extractor.extract_all_facts(text)
+
+            # Generate narrative summary from facts
+            narrative_summary = self._generate_narrative_summary(text, fact_analysis)
+
+            # Generate structured analysis
+            structured_analysis = self._generate_structured_analysis(fact_analysis)
+
+            # Combine in required format
+            if structured_analysis.strip():
+                return f"**SUMMARY**\n{narrative_summary}\n\n**ANALYSIS**\n{structured_analysis}"
+            else:
+                return f"**SUMMARY**\n{narrative_summary}"
+
+        except Exception as e:
+            print(f"Fact-grounded summarization failed, using fallback: {e}")
+            # Fallback to extractive approach
+            return self._fallback_summarize(text, max_length, min_length)
+
+    def _generate_narrative_summary(self, text: str, fact_analysis: Dict) -> str:
+        """Generate 3-6 sentence narrative prose from extracted facts"""
+        facts = fact_analysis.get('facts', {})
+
+        # Collect key facts for narrative
+        events = facts.get('dates_and_events', [])
+        metrics = facts.get('metrics_and_numbers', [])
+        entities = facts.get('companies_and_entities', [])
+        quotes = facts.get('quotes', [])
+
+        # Build narrative sentences with concrete facts
+        sentences = []
+
+        # Add event-based sentences
+        for event in events[:2]:  # Use top 2 events
+            if hasattr(event, 'content') and hasattr(event, 'context'):
+                sentences.append(f"{event.context.strip()}")
+
+        # Add metric-based sentences
+        for metric in metrics[:2]:  # Use top 2 metrics
+            if hasattr(metric, 'content') and hasattr(metric, 'context'):
+                sentences.append(f"{metric.context.strip()}")
+
+        # Add entity-based context if available
+        if entities:
+            entity_names = [e.content for e in entities[:3] if hasattr(e, 'content')]
+            if entity_names:
+                # Look for context in the original text
+                text_lower = text.lower()
+                for entity in entity_names:
+                    entity_lower = entity.lower()
+                    # Find sentences containing the entity
+                    text_sentences = re.split(r'[.!?]+', text)
+                    for sent in text_sentences:
+                        if entity_lower in sent.lower() and len(sent.strip()) > 20:
+                            sentences.append(sent.strip())
+                            break
+
+        # Add memorable quotes if available
+        memorable_quotes = [q for q in quotes if hasattr(q, 'is_memorable') and q.is_memorable]
+        for quote in memorable_quotes[:1]:  # Use 1 memorable quote
+            if hasattr(quote, 'text') and hasattr(quote, 'speaker'):
+                speaker_text = f" ({quote.speaker})" if quote.speaker else ""
+                sentences.append(f'"{quote.text}"{speaker_text}')
+
+        # If we don't have enough facts, fall back to extractive summary
+        if len(sentences) < 3:
             try:
-                # Convert length to sentence count (roughly 25-30 words per sentence)
-                max_sentences = max(3, max_length // 25)
-                min_sentences = max(2, min_length // 25)
+                extractive_summary = extract_grounded_summary(text, max_sentences=4)
+                # Split into sentences and use them
+                extract_sentences = re.split(r'[.!?]+', extractive_summary)
+                sentences.extend([s.strip() for s in extract_sentences if s.strip()])
+            except:
+                # Ultimate fallback - use first few sentences of text
+                text_sentences = re.split(r'[.!?]+', text)
+                sentences.extend([s.strip() for s in text_sentences[:4] if s.strip()])
 
-                # Use extractive summarization to prevent hallucinations
-                summary = extract_grounded_summary(text, max_sentences=max_sentences)
+        # Limit to 3-6 sentences and clean up
+        narrative_sentences = []
+        for sent in sentences[:6]:
+            if sent and len(sent) > 10:  # Skip very short fragments
+                # Clean up the sentence
+                clean_sent = sent.strip()
+                if not clean_sent.endswith('.'):
+                    clean_sent += '.'
+                narrative_sentences.append(clean_sent)
 
-                # Ensure minimum length by adding more sentences if needed
-                if len(summary.split()) < min_length and max_sentences < 7:
-                    summary = extract_grounded_summary(text, max_sentences=max_sentences + 2)
+        # Ensure we have at least 3 sentences
+        while len(narrative_sentences) < 3 and len(sentences) > len(narrative_sentences):
+            additional = sentences[len(narrative_sentences)].strip()
+            if additional and len(additional) > 5:
+                if not additional.endswith('.'):
+                    additional += '.'
+                narrative_sentences.append(additional)
 
-                return summary.strip()
+        return ' '.join(narrative_sentences[:6])  # Max 6 sentences
 
-            except Exception as e:
-                print(f"Extractive summarization failed, using fallback: {e}")
-                # Fallback to generative (with risk of hallucination)
-                return self._generative_summarize(text, max_length, min_length)
-        else:
-            return self._generative_summarize(text, max_length, min_length)
+    def _generate_structured_analysis(self, fact_analysis: Dict) -> str:
+        """Generate structured analysis with deduplicated entities"""
+        facts = fact_analysis.get('facts', {})
+
+        # Collect and deduplicate entities by category
+        categories = {}
+
+        # Events
+        events = facts.get('dates_and_events', [])
+        if events:
+            event_names = [e.content for e in events if hasattr(e, 'content')]
+            event_names = self._deduplicate_entities(event_names)
+            if event_names:
+                categories['Events'] = event_names[:5]
+
+        # Metrics
+        metrics = facts.get('metrics_and_numbers', [])
+        if metrics:
+            metric_items = []
+            for m in metrics:
+                if hasattr(m, 'content') and hasattr(m, 'context'):
+                    # Combine metric with context for better understanding
+                    context_short = m.context[:50] + "..." if len(m.context) > 50 else m.context
+                    metric_items.append(f"{m.content} ({context_short})")
+            if metric_items:
+                categories['Metrics'] = metric_items[:5]
+
+        # Companies/Entities
+        entities = facts.get('companies_and_entities', [])
+        if entities:
+            entity_names = [e.content for e in entities if hasattr(e, 'content')]
+            entity_names = self._deduplicate_entities(entity_names)
+            if entity_names:
+                categories['Entities'] = entity_names[:5]
+
+        # Format as structured list
+        analysis_lines = []
+        for category, items in categories.items():
+            if items:
+                items_str = ', '.join(items)
+                analysis_lines.append(f"- {category}: {items_str}")
+
+        return '\n'.join(analysis_lines)
+
+    def _deduplicate_entities(self, entities: List[str]) -> List[str]:
+        """Remove duplicate and similar entities using fuzzy matching"""
+        if not entities:
+            return []
+
+        # Normalize entities for comparison
+        normalized_entities = []
+        for entity in entities:
+            # Basic normalization
+            normalized = re.sub(r'[^\w\s]', '', entity.lower().strip())
+            normalized = re.sub(r'\s+', ' ', normalized)
+            normalized_entities.append((entity, normalized))
+
+        # Remove duplicates and similar items
+        unique_entities = []
+        seen_normalized = set()
+
+        for original, normalized in normalized_entities:
+            # Check for exact matches first
+            if normalized in seen_normalized:
+                continue
+
+            # Check for fuzzy matches (simple substring approach)
+            is_similar = False
+            for seen in seen_normalized:
+                # If one is substring of another (with some tolerance)
+                if (len(normalized) > 3 and normalized in seen) or \
+                   (len(seen) > 3 and seen in normalized):
+                    # Check if they're similar enough (length difference)
+                    length_ratio = min(len(normalized), len(seen)) / max(len(normalized), len(seen))
+                    if length_ratio > 0.7:  # 70% similarity threshold
+                        is_similar = True
+                        break
+
+            if not is_similar:
+                unique_entities.append(original)
+                seen_normalized.add(normalized)
+
+        return unique_entities
+
+    def _fallback_summarize(self, text: str, max_length: int, min_length: int) -> str:
+        """Fallback summary when fact extraction fails"""
+        try:
+            # Use simple extractive approach
+            sentences = re.split(r'[.!?]+', text)
+            sentences = [s.strip() for s in sentences if s.strip() and len(s.strip()) > 10]
+
+            # Take first few sentences as summary
+            summary_sentences = sentences[:4]
+            narrative = '. '.join(summary_sentences) + '.'
+
+            return f"**SUMMARY**\n{narrative}"
+        except:
+            return f"**SUMMARY**\nUnable to generate summary from provided text."
 
     def _generative_summarize(self, text: str, max_length: int, min_length: int) -> str:
         """
@@ -101,35 +276,27 @@ class TextAnalyzer:
         except Exception as e:
             return f"Summarization failed: {str(e)}"
     
-    def extract_themes(self, text: str, num_themes: int = 5) -> List[Dict]:
+    def extract_themes(self, text: str, num_themes: int = 5) -> str:
         """
-        Extract factually grounded themes based on extracted facts
+        Extract structured categories with deduplicated entities
 
         Args:
             text: Input text
-            num_themes: Number of themes to extract
+            num_themes: Number of categories to extract (kept for compatibility)
 
         Returns:
-            List of theme dictionaries with factual evidence
+            Structured analysis string in ANALYSIS format
         """
         if not text.strip():
-            return []
+            return ""
 
         try:
-            # Use fact extractor for grounded theme generation
+            # Use fact extractor for grounded analysis
             fact_analysis = self.fact_extractor.extract_all_facts(text)
-            themes = fact_analysis.get('themes', [])
-
-            # If fact-based themes found, use them
-            if themes:
-                return themes[:num_themes]
-
-            # Fallback to improved keyword-based themes
-            print("Using keyword-based theme fallback (less reliable)")
-            return self._extract_keyword_themes_improved(text, num_themes)
+            return self._generate_structured_analysis(fact_analysis)
 
         except Exception as e:
-            return [{"title": "Error", "description": f"Theme extraction failed: {str(e)}", "keywords": []}]
+            return f"- Error: Theme extraction failed: {str(e)}"
     
     def analyze_sentiment(self, text: str) -> Dict:
         """

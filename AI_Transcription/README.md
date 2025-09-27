@@ -2,9 +2,17 @@
 
 A powerful, all-in-one audio/video transcription tool powered by ElevenLabs Scribe and OpenAI Whisper with clean architecture, advanced speaker diarization (up to 32 speakers), minimal UI, and multiple export formats.
 
-🏗️ **NEW in v2.0**: Clean architecture with provider pattern, centralized configuration, and modular design for better maintainability and extensibility.
+## 🚨 v2.0 Breaking Changes (2025-09-27)
 
-🎯 **v2.1 Improvements**: Enhanced user flow with upfront analysis selection, fixed speaker formatting, and suppressed deprecation warnings for cleaner UI.
+**Major improvements to analysis quality and speaker accuracy:**
+- 📝 **Narrative Summaries**: Coherent 3-6 sentence prose instead of bullet lists
+- 👥 **Phantom Speaker Fix**: Accurate diarization without false speakers
+- 🔍 **Entity Deduplication**: Fuzzy matching prevents duplicate entries
+- 📊 **Two-Part Format**: Unified `**SUMMARY**` + `**ANALYSIS**` structure
+
+See [CHANGELOG.md](./CHANGELOG.md) for migration guide and full details.
+
+🏗️ **Architecture**: Clean provider pattern, centralized configuration, and modular design for better maintainability.
 
 ## ✨ Features
 
